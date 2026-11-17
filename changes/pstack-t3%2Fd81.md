@@ -1,0 +1,2 @@
+- kind feature
+- `install` writes a Claude Code `SessionStart` hook whose script prints a short note telling each new chat when to enter `poteto-mode`, and records the entry in the install manifest so `uninstall` removes that exact entry and nothing else in `settings.json`. The optional `sessionHook` key in the roles file takes `true` or `false`, `false` silences the note, `roles.py validate` rejects a value that is not a boolean, and `doctor` names an entry that is missing, duplicated, or stale.
