@@ -5,8 +5,8 @@ set -eu
 roles="${XDG_CONFIG_HOME:-${HOME:-}/.config}/pstack-t3/roles.json"
 here=$(dirname "$0")
 
-# A roles file that is missing or that cannot be read counts as absent, so the note stays on.
-if [ -r "$roles" ] && grep -Eq '"sessionHook"[[:space:]]*:[[:space:]]*false([[:space:]]*[,}])?' "$roles"; then
+# Only a top-level "sessionHook": false turns the note off. A missing, unreadable, or invalid roles file keeps it on.
+if [ -r "$roles" ] && python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if isinstance(d, dict) and d.get("sessionHook") is False else 1)' "$roles" 2>/dev/null; then
   exit 0
 fi
 
