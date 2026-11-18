@@ -43,8 +43,8 @@ def _header_cells(line):
 
 
 def _links_modes(rel_s, line):
-    """A runtime file links its own SKILL.md by a relative path. Any other file names pstack-runtime/SKILL.md."""
-    return "pstack-runtime/SKILL.md#" in line or (rel_s.startswith("pstack-runtime/") and "](SKILL.md#" in line)
+    """A runtime file links its own Modes section by a relative path. Any other file names pstack-runtime/SKILL.md."""
+    return "pstack-runtime/SKILL.md#" in line or (rel_s.startswith("pstack-runtime/") and "](SKILL.md#modes" in line)
 
 
 def light_table_findings(rel_s, text, cells):
