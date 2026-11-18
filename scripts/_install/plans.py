@@ -63,8 +63,9 @@ def tagged_exists(view, path, root):
 def install_hook_steps(view, scope, user, selected, root):
     """The hook steps this run plans: user scope only, one per managed harness hook.
 
-    A hook step is planned when the manifest has no row for the hook or the settings file has no entry for its
-    command. The settings file is read here, so a file that will not parse refuses the run before any write.
+    A hook step is planned when the manifest has no row from this checkout for the hook, or the settings file holds no
+    entry for its command under the registry's matcher. The settings file is read and its shape checked here, so a file
+    that will not parse or holds another shape refuses the run before any write.
     """
     if not user or not hooks.built(root):
         return ()
@@ -75,10 +76,10 @@ def install_hook_steps(view, scope, user, selected, root):
     }
     steps = []
     for hook in hooks.managed(dirs, root):
-        holds = hooks.matching(hooks.settings(hook.file), hook)
+        data = hooks.settings(hook.file)
         record = hooks.row(hook, root)
         recorded = record in view.hooks
-        if recorded and holds:
+        if recorded and hook.matcher in hooks.matchers(data, hook):
             continue
         steps.append(Step("hook", hook.file, hook=hook, add_hooks=() if recorded else (record,)))
     return tuple(steps)

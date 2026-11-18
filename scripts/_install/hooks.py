@@ -4,10 +4,11 @@ One `Hook` is one registry entry: the harness, its settings file, the event, the
 string pstack-t3 installs. The install manifest records a row per hook with the checkout that recorded it, the way a
 link row records its checkout, so install and uninstall know what they own.
 
-Install adds the command to the event list only when no identical command is in the file, and writes the file
-atomically. Uninstall removes that exact command and the containers it empties, and leaves every other entry and
-key as the file holds it. A file that will not parse refuses the run before anything is written. A checkout whose
-generated tree carries no hook script manages no hook.
+Install adds the command to the event list only when no group with the registry's matcher holds it, and writes the
+file atomically. An entry our command sits under another matcher is stale, so install drops it and leaves one correct
+entry. Uninstall removes that exact command and the containers it empties, and leaves every other entry and key as the
+file holds it. A file that will not parse, or that holds another shape under `hooks`, refuses the run before anything
+is written. A checkout whose generated tree carries no hook script manages no hook.
 """
 
 from __future__ import annotations
@@ -117,6 +118,11 @@ def groups(data, hook):
     return found
 
 
+def holds(group, hook):
+    """Whether a group's `hooks` list carries `hook.command`."""
+    return any(isinstance(entry, dict) and entry.get("command") == hook.command for entry in group["hooks"])
+
+
 def matching(data, hook):
     """The entries under `hook.event` that hold `hook.command`, in file order."""
     return [
@@ -127,10 +133,20 @@ def matching(data, hook):
     ]
 
 
+def matchers(data, hook):
+    """The matcher of each group under `hook.event` that holds `hook.command`, in file order."""
+    return tuple(group.get("matcher") for group in groups(data, hook) if holds(group, hook))
+
+
 def add(data, hook):
-    """Add `hook`'s command under its event. Return False when an identical command is already there."""
-    if matching(data, hook):
+    """Put `hook`'s command under its event with the registry's matcher.
+
+    Return False when a group with that matcher already holds the command. An entry the command sits in under another
+    matcher is stale, so it goes and one correct entry stays; a foreign entry in that group stays where it is.
+    """
+    if hook.matcher in matchers(data, hook):
         return False
+    remove(data, hook)
     data.setdefault("hooks", {}).setdefault(hook.event, []).append(
         {"matcher": hook.matcher, "hooks": [{"type": ENTRY_TYPE, "command": hook.command}]}
     )

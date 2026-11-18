@@ -111,6 +111,12 @@ HOOK_STALE = ('hook {event} in {file}: pstack-t3 records the command {recorded} 
 HOOK_STALE_MANY = ('hooks record a command pstack-t3 no longer installs; '
                   'run "{uninstall}", then "{install}", to replace them:')
 
+HOOK_DRIFTED = ('hook {event} in {file}: the entry holding {command} sits under matcher {matcher}, and pstack-t3 '
+                'installs matcher {expected}; run "{install}" to repair it')
+
+HOOK_DRIFTED_MANY = ('hooks hold the command pstack-t3 records under another matcher; '
+                     'run "{install}" to repair them:')
+
 def command(args, *words):
     """One shell command for a person to copy and run from this checkout. Every argument is quoted for a POSIX shell as needed."""
     project = (f"--project={args.project}",) if args.project else ()
@@ -179,6 +185,15 @@ def hook_finding(args, root, raw, data):
                                          install=install, uninstall=uninstall),
                        HOOK_TWICE_MANY.format(install=install, uninstall=uninstall),
                        f"{hook.event} in {hook.file}: {len(found)} entries run {hook.command}")
+    # A group under another matcher never hands the command the event it waits for, so the note would never print.
+    wrong = [matcher for matcher in hooks.matchers(data, hook) if matcher != hook.matcher]
+    if wrong:
+        held = ", ".join(matcher or "no matcher" for matcher in wrong)
+        return Finding((hook.harness,),
+                       HOOK_DRIFTED.format(event=hook.event, file=hook.file, command=hook.command, matcher=held,
+                                           expected=hook.matcher, install=install),
+                       HOOK_DRIFTED_MANY.format(install=install),
+                       f"{hook.event} in {hook.file}: matcher {held} on {hook.command}")
     return None
 
 

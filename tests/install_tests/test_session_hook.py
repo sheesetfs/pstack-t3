@@ -148,6 +148,29 @@ class SessionHookTest(unittest.TestCase):
         self.assertTrue(link.exists())
         self.assertEqual(legacy_file(self.home).read_text(), manifest)
 
+    def test_doctor_names_a_drifted_matcher_and_install_repairs_it(self):
+        self.install()
+        document = self.settings()
+        document["hooks"]["SessionStart"][0]["matcher"] = "never_matches"
+        self.write_settings(document)
+
+        named = run_install(self.home, "doctor", "--harness", "claude")
+
+        self.assertEqual(named.returncode, 0, named.stdout + named.stderr)
+        self.assertIn(f"hook SessionStart in {self.settings_path()}: the entry holding {COMMAND} sits under matcher "
+                      "never_matches", named.stdout)
+        self.assertIn(f'and pstack-t3 installs matcher {MATCHER}', named.stdout)
+        self.assertIn('run "python3 scripts/install.py install --harness claude" to repair it', named.stdout)
+
+        repaired = self.install()
+
+        self.assertEqual(repaired.returncode, 0, repaired.stderr)
+        self.assertEqual(self.settings()["hooks"]["SessionStart"],
+                         [{"matcher": MATCHER, "hooks": [{"type": "command", "command": COMMAND}]}])
+        quiet = run_install(self.home, "doctor", "--harness", "claude")
+        self.assertEqual(quiet.returncode, 0, quiet.stdout + quiet.stderr)
+        self.assertNotIn("never_matches", quiet.stdout)
+
     def test_a_file_that_is_not_json_refuses_and_changes_nothing(self):
         self.settings_path().parent.mkdir(parents=True)
         self.settings_path().write_text("{ not json")
