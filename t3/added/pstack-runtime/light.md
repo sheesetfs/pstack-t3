@@ -1,6 +1,6 @@
 # Light mode reference
 
-Read this file before every spawn and run the row for that spawn.
+Before every spawn in light mode, run `python3 <pstack-runtime>/scripts/roles.py light --spawn <name>` and run the row it prints, per [Light behavior](SKILL.md#light-behavior). Read this file before you add or edit a row.
 
 | Spawn | Light behavior |
 | --- | --- |
@@ -34,12 +34,6 @@ Read this file before every spawn and run the row for that spawn.
 | Landing writer | One writer per unit. Its brief or `message` carries the mode lines and the seat rule from [Resolve and carry the mode](SKILL.md#resolve-and-carry-the-mode). |
 | Autonomous run watcher | Keep it. |
 | Setup smoke test | Keep one per provider. |
-
-## Light behavior
-
-In light mode, run the row for the spawn you are about to make. A step its row does not change runs as the skill says. A smaller fan-out in a row is how that step runs, not a waiver. Waived steps come only from the brief's `Waived by mode:` line, which `roles.py mode` prints from `LIGHT_WAIVERS`. Never add a waiver of your own. No light fan-out wave has more than 3 children in flight. A wave with more slices batches them into 3 briefs and keeps every slice covered.
-
-A send-back in light mode is a fix attempt with a fresh worker. Its brief carries the findings, the old head, and the `Attempt: fix` lines `roles.py mode` prints.
 
 ## Gate review
 

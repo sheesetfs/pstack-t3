@@ -19,7 +19,7 @@ Tool names may carry a harness prefix, such as `mcp__t3-code__delegate_task` or 
 | [threads.md](threads.md) | before `t3_thread_configure`, `t3_queue`, `t3_thread_transfer`, `run_scheduled_task_now`, or pausing a finite program's schedule |
 | [webhooks.md](webhooks.md) | before creating a webhook schedule, asking for a signing secret, or choosing between a webhook and a polling schedule |
 | [secrets.md](secrets.md) | before you ask the user for a secret, or before a shell command needs a token, deploy key, or password |
-| [light.md](light.md) | before every spawn in light mode |
+| [light.md](light.md) | before you add or edit a light row. Before a light spawn, run `roles.py light` per [Light behavior](#light-behavior) instead |
 | [gate-review.md](gate-review.md) | before reusing a gate verdict |
 | [failures.md](failures.md) | on usage limit or after restart |
 | [verification.md](verification.md) | before UI or device or CLI verification |
@@ -110,7 +110,7 @@ The Haiku brief rule lives in [roles.md](roles.md#claude-haiku-55).
 
 ## Modes
 
-pstack-t3 runs each piece of work in `full` or `light` mode. Full mode runs every step as each skill says. Light mode keeps every check that decides whether code lands and cuts the fan-out around it. A skill or playbook that spawns links here. Its light behavior is the row in [light.md](light.md) that names it, and its full behavior is its own text.
+pstack-t3 runs each piece of work in `full` or `light` mode. Full mode runs every step as each skill says. Light mode keeps every check that decides whether code lands and cuts the fan-out around it. A skill or playbook that spawns links here. Its light behavior is the row in [light.md](light.md) that names it, which `roles.py light --spawn <name>` prints, and its full behavior is its own text.
 
 ### Resolve and carry the mode
 
@@ -144,7 +144,15 @@ Escalation only moves work toward `full`. `roles.py mode` prints `Mode: full` an
 
 ### Light behavior
 
-Light behavior lives in [light.md](light.md#light-behavior).
+Before every spawn in light mode, run this and run the row it prints. With no `--spawn` it lists the rows.
+
+```bash
+python3 <pstack-runtime>/scripts/roles.py light --spawn <name>
+```
+
+In light mode, run the row for the spawn you are about to make. A step its row does not change runs as the skill says. A smaller fan-out in a row is how that step runs, not a waiver. Waived steps come only from the brief's `Waived by mode:` line, which `roles.py mode` prints from `LIGHT_WAIVERS`. Never add a waiver of your own. No light fan-out wave has more than 3 children in flight. A wave with more slices batches them into 3 briefs and keeps every slice covered.
+
+A send-back in light mode is a fix attempt with a fresh worker. Its brief carries the findings, the old head, and the `Attempt: fix` lines `roles.py mode` prints.
 
 ### Never cut
 
