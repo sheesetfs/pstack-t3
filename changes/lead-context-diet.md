@@ -1,3 +1,3 @@
 - kind feature
-- `roles.py light --spawn <name>` prints the light row for one spawn, so a lead in light mode no longer reads all of `light.md` before each spawn
+- `roles.py light --spawn "<label>"` prints the light row for one spawn, so a lead in light mode no longer reads all of `light.md` before each spawn. A label or one of its aliases prints its row, and any other name is refused with every label listed
 - `roles.py gate-brief` prints the gate reviewer's brief with the comment rules, the gate contract, and a later round's `FOCUS` section, so a lead no longer pastes them by hand

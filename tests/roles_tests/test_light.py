@@ -27,26 +27,41 @@ class LightRowsTest(unittest.TestCase):
     def test_every_row_of_light_md_parses(self):
         rows = roles.light_rows(LIGHT.read_text())
         spawns = [spawn for spawn, _behavior in rows]
-        self.assertEqual(spawns[0], "`how`")
+        self.assertEqual(spawns[0], "how")
         self.assertIn("Code delegate", spawns)
         self.assertEqual(spawns[-1], "Setup smoke test")
         self.assertEqual(len(spawns), len(set(spawns)))
         self.assertTrue(all(behavior and not behavior.startswith("|") for _spawn, behavior in rows))
 
-    def test_a_spawn_matches_its_row_by_words(self):
+    def test_a_label_or_an_alias_matches_its_row_exactly(self):
         rows = roles.light_rows(LIGHT.read_text())
 
-        def names(query):
-            return [spawn for spawn, _behavior in roles.matching_rows(rows, query)]
+        def row(query):
+            found = roles.row_for(rows, query)
+            return None if found is None else found[0]
 
-        self.assertEqual(names("code delegate"), ["Code delegate"])
-        self.assertEqual(names("Code Delegate for feature"), ["Code delegate"])
-        self.assertEqual(names("how explainer"), ["`how`"])
-        self.assertEqual(names("architect"), ["`architect` grounding", "`architect` runners"])
-        self.assertEqual(names("comment sicko"), ["Comment Sicko", "Comment Sicko follow-ups"])
-        self.assertEqual(names("swarm worker"), ["`swarm`"])
-        self.assertEqual(names("gate review"), [])
-        self.assertEqual(names("  "), [])
+        self.assertEqual(row("code delegate"), "Code delegate")
+        self.assertEqual(row("Code Delegate"), "Code delegate")
+        self.assertEqual(row("how"), "how")
+        self.assertEqual(row("`how`"), "how")
+        self.assertEqual(row("  architect runners "), "architect runners")
+        self.assertEqual(row("arena cross-judge"), "Arena cross-judge")
+        self.assertIsNone(row("architect"))
+        self.assertIsNone(row("code delegate for feature"))
+        self.assertIsNone(row("  "))
+
+    def test_the_alias_names_belong_to_real_rows(self):
+        rows = roles.light_rows(LIGHT.read_text())
+        known = {label.casefold() for label in roles.labels(rows)}
+        self.assertEqual(sorted(set(roles.ALIASES) - known), [])
+
+    def test_an_alias_prints_the_row_it_names(self):
+        completed = run_light("--spawn", "arena judge")
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertEqual(completed.stdout.splitlines()[0], f"Arena cross-judge: {dict(roles.light_rows(LIGHT.read_text()))['Arena cross-judge']}")
+        completed = run_light("--spawn", "architect runner")
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn("Spawn one runner on the first", completed.stdout)
 
     def test_command_prints_the_row_verbatim(self):
         completed = run_light("--spawn", "code delegate")
@@ -55,18 +70,20 @@ class LightRowsTest(unittest.TestCase):
         self.assertEqual(completed.stdout.splitlines()[0], f"Code delegate: {row}")
         self.assertIn(f"Links are relative to {LIGHT}.", completed.stdout)
 
-    def test_unmatched_spawn_names_the_rows(self):
-        completed = run_light("--spawn", "gate review")
-        self.assertEqual(completed.returncode, 0, completed.stderr)
-        self.assertTrue(completed.stdout.startswith("No light row names 'gate review'."))
-        self.assertIn("Run roles.py light with no --spawn to list the rows.", completed.stdout)
-        self.assertNotIn("`why`", completed.stdout)
+    def test_an_unmatched_spawn_is_refused_with_every_label(self):
+        completed = run_light("--spawn", "banana split")
+        self.assertEqual(completed.returncode, 2)
+        self.assertEqual(completed.stdout, "")
+        self.assertIn("No light row matches 'banana split'.", completed.stderr)
+        self.assertIn("Rerun with one of these labels: ", completed.stderr)
+        for label in roles.labels(roles.light_rows(LIGHT.read_text())):
+            self.assertIn(label, completed.stderr)
 
     def test_no_spawn_lists_the_rows(self):
         completed = run_light()
         self.assertEqual(completed.returncode, 0, completed.stderr)
         self.assertIn("Setup smoke test", completed.stdout)
-        self.assertIn("roles.py light --spawn <name>", completed.stdout)
+        self.assertIn('roles.py light --spawn "<label>"', completed.stdout)
 
     def test_a_file_without_rows_is_an_error(self):
         with self.assertRaises(roles.RolesError):
