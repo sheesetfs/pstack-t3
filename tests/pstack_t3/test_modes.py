@@ -53,7 +53,7 @@ RUNTIME_LINK = re.compile(r"pstack-runtime/SKILL\.md#([^)\s]+)\)")
 class ModesTest(unittest.TestCase):
     def setUp(self):
         self.runtime = (ROOT / "skills/pstack-runtime/SKILL.md").read_text()
-        self.gate = (ROOT / "skills/pstack-runtime/light.md").read_text().split("## Gate review", 1)[1]
+        self.gate = (ROOT / "skills/pstack-runtime/gate.md").read_text()
 
     def test_every_pointer_site_holds_the_pointer_once_outside_a_fence(self):
         for path, kind in MODE_POINTER_SITES.items():
@@ -110,7 +110,7 @@ class ModesTest(unittest.TestCase):
         self.assertIn("pass check <item> --sha <head> --json", self.gate)
 
     def test_deadlines_and_delegation_step_4_carry_the_mode_lines(self):
-        deadlines = self.runtime.split("## Deadlines", 1)[1].split("\n## ", 1)[0]
+        deadlines = (ROOT / "skills/pstack-runtime/modes.md").read_text().split("## Deadlines", 1)[1].split("\n## ", 1)[0]
         self.assertIn(
             "A step that the brief's `Waived by mode:` line names is not a skip, "
             "because the mode removed it before the attempt started.",
@@ -132,10 +132,11 @@ class ModesTest(unittest.TestCase):
         self.assertIn("Run `/no-comments` before review.", text)
 
     def test_gate_contract_is_literal(self):
-        self.assertEqual(gate_contract(self.gate), GATE_CONTRACT)
+        self.assertEqual(roles.GATE_CONTRACT, GATE_CONTRACT)
+        self.assertNotIn("Gate review contract.", self.gate)
 
     def test_seat_rule_is_literal(self):
-        self.assertEqual(seat_rule(self.runtime), SEAT_RULE)
+        self.assertEqual(seat_rule((ROOT / "skills/pstack-runtime/modes.md").read_text()), SEAT_RULE)
 
     def test_every_owner_row_carries_the_seat_rule(self):
         light = (ROOT / "skills/pstack-runtime/light.md").read_text()
@@ -167,10 +168,11 @@ class ModesTest(unittest.TestCase):
             paragraph,
         )
         resolve = self.runtime.split("### Resolve and carry the mode", 1)[1].split("\n### ", 1)[0]
-        self.assertIn("except the explicit reflect below", resolve)
+        self.assertIn("except a user's explicit reflect, which passes `--session-mode full` per [Explicit reflect](modes.md#explicit-reflect)", resolve)
+        reflect = (ROOT / "skills/pstack-runtime/modes.md").read_text().split("## Explicit reflect", 1)[1].split("\n## ", 1)[0]
         self.assertIn(
             "A user's explicit reflect passes `--session-mode full` on every `roles.py show` call",
-            resolve,
+            reflect,
         )
 
     def test_automate_me_brief_lists_every_assigned_thread(self):
@@ -187,10 +189,32 @@ class ModesTest(unittest.TestCase):
             text,
         )
 
+    def test_delegation_step_2_offers_the_heredoc_route(self):
+        step = self.runtime.split("2. Resolve the role's targets", 1)[1].split("\n3. ", 1)[0]
+        self.assertIn("with the host's file tool", step)
+        self.assertIn("`--catalog -`", step)
+        self.assertIn("[Where roles live](roles.md#where-roles-live)", step)
+
+    def test_each_light_call_site_names_its_label(self):
+        runtime = self.runtime.split("### Light behavior", 1)[1].split("\n### ", 1)[0]
+        self.assertIn('roles.py light --spawn "<label>"', runtime)
+        self.assertIn("such as `code delegate` or `gate review`", runtime)
+        feature = (ROOT / "skills/poteto-mode/playbooks/feature.md").read_text()
+        step = feature.split("4. Delegate code-writing", 1)[1].split("\n5. ", 1)[0]
+        self.assertIn('roles.py light --spawn "code delegate"', step)
+        brief = self.gate.split("2. **Brief.**", 1)[1].split("\n3. **Verdict.**", 1)[0]
+        self.assertIn('roles.py light --spawn "gate review"', brief)
+
     def test_gate_brief_pastes_persona_then_contract(self):
-        paragraph = brief_paragraph(self.gate)
-        self.assertIn("Paste the body of `agents/comment-sicko.md` unchanged", paragraph)
-        self.assertIn("paste the gate contract below unchanged", paragraph)
+        paragraph = self.gate.split("2. **Brief.**", 1)[1].split("\n3. **Verdict.**", 1)[0]
+        self.assertIn(
+            "roles.py gate-brief --head <full head sha> --author <provider/model> --verifier <provider/model> --base <base ref>",
+            paragraph,
+        )
+        self.assertIn("Pass `--author` once per model that wrote the diff, and `--verifier` from step 1", paragraph)
+        self.assertIn("the body of `agents/comment-sicko.md` unchanged with a request for its findings", paragraph)
+        self.assertIn("the gate contract unchanged right after that body", paragraph)
+        self.assertIn("add the child's own verification tasks after its output", paragraph)
         self.assertNotIn("and ask for that skill's checks", self.gate)
 
     def test_every_gate_review_row_links_gate_review(self):

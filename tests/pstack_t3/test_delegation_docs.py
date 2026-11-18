@@ -23,19 +23,27 @@ import roles  # noqa: E402
 from tests.pstack_t3.support import runtime_doc_section, runtime_section, runtime_bullet
 
 
+def failure_handling():
+    """The runtime's Failure handling stub and the failures.md section it points at."""
+    return runtime_section("### Failure handling", "\n### ") + runtime_doc_section("failures.md", "## Failure handling")
+
+
 class StalledChildDocTest(unittest.TestCase):
     def test_delegation_step_5_bounds_an_open_child(self):
         waiting = (ROOT / "t3/added/pstack-runtime/waiting.md").read_text()
         self.assertIn("t3_thread_wait", waiting)
         self.assertIn("timeoutMs: 300000", waiting)
         self.assertIn("does not end its turn while a child is open", waiting)
-        step = runtime_doc_section("delegation.md", "5. Collect results.", "\n6. You own")
+        step = runtime_section("5. Collect results.", "\n6. You own")
         self.assertIn("Read [waiting.md](waiting.md)", step)
 
     def test_delegation_step_5_rechecks_a_final_result_after_two_minutes(self):
         waiting = (ROOT / "t3/added/pstack-runtime/waiting.md").read_text()
+        cases = (ROOT / "t3/added/pstack-runtime/wait-cases.md").read_text()
         ten = "A child with no new item for 10 minutes is stalled."
         two = "no pending tool or child run, and no new activity for two minutes is stalled."
+        self.assertIn(ten, waiting)
+        self.assertIn("when a child's last message holds the result while its run stays open", waiting)
         for phrase in (
             two,
             "A message that says more work follows does not hold the result.",
@@ -43,16 +51,15 @@ class StalledChildDocTest(unittest.TestCase):
             "with `timeoutMs: 120000`",
             "only when the wait timed out, `workState` is still `working`, "
             "that message is still the last item, and no tool or child run is pending.",
-            "Otherwise the 10-minute rule above decides that child.",
-            ten,
+            "Otherwise the 10-minute rule in [waiting.md](waiting.md) decides that child.",
         ):
-            self.assertIn(phrase, waiting)
-        self.assertLess(waiting.index(ten), waiting.index(two))
-        step = runtime_doc_section("delegation.md", "5. Collect results.", "\n6. You own")
+            self.assertIn(phrase, cases)
+        step = runtime_section("5. Collect results.", "\n6. You own")
         self.assertIn("Read [waiting.md](waiting.md)", step)
 
     def test_delegation_step_5_waits_out_an_ended_run(self):
-        waiting = (ROOT / "t3/added/pstack-runtime/waiting.md").read_text()
+        waiting = (ROOT / "t3/added/pstack-runtime/wait-cases.md").read_text()
+        core = (ROOT / "t3/added/pstack-runtime/waiting.md").read_text()
         two = "no pending tool or child run, and no new activity for two minutes is stalled."
         ended = "A child's run can end while its task stays open."
         now = "If you need a result now"
@@ -70,8 +77,9 @@ class StalledChildDocTest(unittest.TestCase):
         ):
             self.assertIn(phrase, waiting)
         self.assertLess(waiting.index(two), waiting.index(ended))
-        self.assertLess(waiting.index(ended), waiting.index(now))
-        step = runtime_doc_section("delegation.md", "5. Collect results.", "\n6. You own")
+        self.assertIn(now, core)
+        self.assertIn("returns at once while `task_status` reports `working` or `waiting_for_children`", core)
+        step = runtime_section("5. Collect results.", "\n6. You own")
         self.assertIn("Read [waiting.md](waiting.md)", step)
 
     def test_delegation_step_5_holds_against_the_delegate_task_tool_text(self):
@@ -80,24 +88,24 @@ class StalledChildDocTest(unittest.TestCase):
         holds = "This holds even though the `delegate_task` tool text says to end the turn."
         self.assertIn(holds, waiting)
         self.assertLess(waiting.index(stay), waiting.index(holds))
-        step = runtime_doc_section("delegation.md", "5. Collect results.", "\n6. You own")
+        step = runtime_section("5. Collect results.", "\n6. You own")
         self.assertIn("Read [waiting.md](waiting.md)", step)
 
     def test_failure_handling_keeps_the_two_minute_clock_out(self):
-        section = runtime_section("### Failure handling", "### Fresh children by default")
+        section = failure_handling()
         self.assertNotIn("two minutes", section)
         self.assertNotIn("120000", section)
         self.assertIn("holds the result the brief asked for", section)
 
     def test_permissions_never_lowers_runtime_mode(self):
-        text = (ROOT / "t3/added/pstack-runtime/delegation.md").read_text()
-        section = text.split("### Permissions", 1)[1].split("### Fresh children by default", 1)[0]
+        section = runtime_section("### Permissions", "\n### ")
         self.assertIn("never lower it", section)
+        self.assertIn("read [Permissions](delegation.md#permissions)", section)
 
     def test_failure_handling_names_a_stalled_child(self):
-        text = (ROOT / "t3/runtime.md").read_text()
-        section = text.split("### Failure handling", 1)[1].split("### Fresh children by default", 1)[0]
-        self.assertIn("A stalled child", section)
+        self.assertIn("A stalled child", failure_handling())
+        stub = runtime_section("### Failure handling", "\n### ")
+        self.assertIn("read [Failure handling](failures.md#failure-handling)", stub)
 
     def test_no_source_tells_a_parent_to_end_its_turn_on_an_open_child(self):
         unbounded = re.compile(r"completion notifications? wakes?|let (?:each|the) completion|end the turn rather than wait"
@@ -124,7 +132,7 @@ class StalledChildDocTest(unittest.TestCase):
         self.assertEqual(missing, [])
 
     def test_failure_handling_relaunches_a_usage_limit_from_the_backups_key(self):
-        section = runtime_section("### Failure handling", "\n### ") + runtime_doc_section("failures.md", "## Usage limit")
+        section = failure_handling() + runtime_doc_section("failures.md", "## Usage limit")
         self.assertIn("roles.py backup", section)
         for decision in ("relaunch", "panel", "park", "not-usage-limit"):
             self.assertIn(f"`{decision}`", section)
@@ -155,7 +163,7 @@ class StalledChildDocTest(unittest.TestCase):
         self.assertLess(section.index("provider error"), section.index("roles.py backup"))
 
     def test_failure_handling_decides_completion_by_work_state(self):
-        section = runtime_section("### Failure handling", "\n### ")
+        section = failure_handling()
         self.assertNotIn("that child is still running nested work", section)
         for phrase in (
             "Decide completion by `workState` alone.",
@@ -171,7 +179,7 @@ class StalledChildDocTest(unittest.TestCase):
             self.assertIn(phrase, recovery)
         waiting = (ROOT / "t3/added/pstack-runtime/waiting.md").read_text()
         self.assertIn("`hasPendingChildRuns` does not change that.", waiting)
-        step = runtime_doc_section("delegation.md", "5. Collect results.", "\n6. You own")
+        step = runtime_section("5. Collect results.", "\n6. You own")
         self.assertIn("Read [waiting.md](waiting.md)", step)
 
     def test_local_state_reads_a_finished_result_after_restart(self):
@@ -189,14 +197,14 @@ class OpenCodeLongCommandDocTest(unittest.TestCase):
     )
 
     def test_delegation_step_3_carries_the_opencode_brief_paragraph(self):
-        step = runtime_doc_section("delegation.md", "3. Spawn every independent child", "\n4. A child starts")
-        cursor = "A Cursor harness sent `options` as a string, T3 refused the call, and the child then dropped the options."
-        rule = step.split(cursor, 1)[1].split("\n   - ", 2)[1]
-        self.assertTrue(rule.startswith("OpenCode moves a long command to the background, tells the model to end its turn"))
+        step = runtime_section("3. Spawn every independent child", "\n4. A child starts")
+        self.assertIn("   - Before you seat a child on OpenCode, read [OpenCode children](delegation.md#opencode-children).\n", step)
+        rule = runtime_doc_section("delegation.md", "## OpenCode children")
+        self.assertTrue(rule.strip().startswith("OpenCode moves a long command to the background, tells the model to end its turn"))
         self.assertNotIn("only OpenCode", rule)
         self.assertIn("T3 publishes the task's result when the first turn ends, and the later turn does not reopen the task.", rule)
         self.assertIn("Paste this paragraph unchanged into the brief of every child seated on OpenCode.", rule)
-        self.assertIn("     > " + " ".join(self.PARAGRAPH) + "\n", rule)
+        self.assertIn("\n> " + " ".join(self.PARAGRAPH) + "\n", rule)
         self.assertIn(
             "When an OpenCode child's task is terminal and the report file its brief named is missing, "
             "the task is not finished. Read its activity with `t3_thread_read`. "
@@ -206,15 +214,15 @@ class OpenCodeLongCommandDocTest(unittest.TestCase):
         )
 
     def test_step_5_two_minute_rule_skips_a_background_wait(self):
-        waiting = (ROOT / "t3/added/pstack-runtime/waiting.md").read_text()
-        bullet = runtime_bullet(waiting, "   - A child with a final assistant message that holds the result")
+        cases = (ROOT / "t3/added/pstack-runtime/wait-cases.md").read_text()
+        bullet = runtime_bullet(cases, "   - A child with a final assistant message that holds the result")
         self.assertIn(
             "A message that says more work follows does not hold the result. "
             "A last message that says the child waits on a background command does not hold the result either, "
             "so this two-minute rule does not apply to it.",
             bullet,
         )
-        step = runtime_doc_section("delegation.md", "5. Collect results.", "\n6. You own")
+        step = runtime_section("5. Collect results.", "\n6. You own")
         self.assertIn("Read [waiting.md](waiting.md)", step)
 
     def test_the_paragraph_is_stated_once(self):
@@ -233,11 +241,10 @@ class SeatLaunchDocTest(unittest.TestCase):
             section,
         )
         self.assertIn('"options": {"effort": "xhigh"}', section)
-        self.assertIn("Confirm a launched thread per [Delegation](delegation.md#spawn-and-collect) step 3.", section)
+        self.assertIn("Confirm a launched thread per [Delegation](SKILL.md#delegation) step 3.", section)
 
     def test_readback_sentence_names_where_to_read_and_never_retries_without_options(self):
-        delegation = (ROOT / "t3/added/pstack-runtime/delegation.md").read_text()
-        step = delegation.split("3. Spawn every independent child", 1)[1].split("\n4. A child starts", 1)[0]
+        step = runtime_section("3. Spawn every independent child", "\n4. A child starts")
         self.assertIn(
             "After a `t3_thread_launch` or `delegate_task` call whose seat has `options`, "
             "read the applied options from the launch result's `modelSelection.options` or from "

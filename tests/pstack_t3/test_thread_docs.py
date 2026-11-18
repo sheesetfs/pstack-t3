@@ -91,9 +91,9 @@ class ForkDocTest(unittest.TestCase):
         stub = runtime_section("## Top-level threads")
         self.assertIn("### Forks", stub)
         self.assertIn("Forks live in [threads.md](threads.md#forks).", stub)
+        self.assertLess(stub.index("[Top-level threads](threads.md#top-level-threads)"), stub.index("### Forks"))
         threads = runtime_doc_section("threads.md", "## Top-level threads")
         self.assertIn("`create_threads` makes up to 20 threads", threads)
-        self.assertLess(stub.index("`create_threads` makes up to 20 threads"), stub.index("### Forks"))
 
     def test_a_fork_never_replaces_a_child(self):
         for sentence in (
@@ -158,7 +158,7 @@ class ConfigureOwnerDocTest(unittest.TestCase):
         for sentence in (
             "Resolve the seat per [Roles](SKILL.md#roles) with `roles.py show`.",
             "Call it when `t3_thread_read` shows no `activeRunId`, or after `t3_thread_interrupt` and `t3_thread_wait` end the run.",
-            "compare `instanceId`, `model`, and every option per [Delegation](delegation.md#spawn-and-collect) step 3.",
+            "compare `instanceId`, `model`, and every option per [Delegation](SKILL.md#delegation) step 3.",
             "On a refusal or a mismatch, send nothing to the thread and report the tool's error text.",
         ):
             self.assertIn(sentence, self.bullet)

@@ -19,7 +19,7 @@ from ..support import (
 
 class WaitThreadsMixin:
     def test_the_brief_pastes_the_runtime_seat_rule_unchanged(self):
-        runtime = (ROOT / "t3/runtime.md").read_text()
+        runtime = (ROOT / "t3/added/pstack-runtime/modes.md").read_text()
         self.assertIn(f"  ```text\n  {self.SEAT_RULE}\n  ```", runtime)
 
     def test_the_runtime_still_states_the_bounded_wait(self):
@@ -27,8 +27,10 @@ class WaitThreadsMixin:
         waiting = (ROOT / "t3/added/pstack-runtime/waiting.md").read_text()
         self.assertIn("does not end its turn while a child is open", waiting)
         self.assertIn("Decide completion by `workState` alone", runtime)
-        self.assertIn("Its finished turn does not wake the launcher.", runtime)
-        self.assertIn("interrupt with `t3_thread_interrupt`", runtime)
+        threads = (ROOT / "t3/added/pstack-runtime/threads.md").read_text()
+        self.assertIn("Its finished turn does not wake the launcher.", threads)
+        self.assertIn("interrupt with `t3_thread_interrupt`", threads)
+        self.assertIn("[Top-level threads](threads.md#top-level-threads)", runtime)
         self.assertIn("[waiting.md](waiting.md)", runtime)
 
     def test_wait_rule_waits_out_an_ended_run(self):

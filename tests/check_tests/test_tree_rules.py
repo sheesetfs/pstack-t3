@@ -35,7 +35,7 @@ class LightTableExemptionTest(unittest.TestCase):
         "| --- | --- |\n"
         "| `swarm` | Spawn at most 3 workers. |\n"
     )
-    SKILL = "---\nname: pstack-runtime\ndescription: d\n---\n\n## Gate review\n\nCall `watch_pull_request`. Call `unwatch_pull_request`.\n"
+    SKILL = "---\nname: pstack-runtime\ndescription: d\n---\n\n## Modes\n\nPick one.\n\n## Gate review\n\nCall `watch_pull_request`. Call `unwatch_pull_request`.\n"
 
     def test_a_light_table_in_light_md_passes(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -74,6 +74,30 @@ class LightTableExemptionTest(unittest.TestCase):
                 findings,
             )
 
+
+    def test_a_runtime_file_names_light_mode_with_a_relative_runtime_link(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            runtime = root / "pstack-runtime"
+            runtime.mkdir(parents=True)
+            (runtime / "SKILL.md").write_text(self.SKILL)
+            (runtime / "gate.md").write_text("# Gate\n\nLight mode adds a read, per [Modes](SKILL.md#modes).\n")
+            self.assertEqual(check.check_tree(root), [])
+            (runtime / "gate.md").write_text("# Gate\n\nLight mode adds a read.\n")
+            self.assertTrue(any("pstack-runtime/gate.md:3: names light mode" in finding for finding in check.check_tree(root)))
+
+    def test_another_skill_md_anchor_does_not_exempt_light_mode(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            runtime = root / "pstack-runtime"
+            runtime.mkdir(parents=True)
+            (runtime / "SKILL.md").write_text(self.SKILL)
+            (runtime / "gate.md").write_text("# Gate\n\nLight mode adds a read, per [Gate review](SKILL.md#gate-review).\n")
+            self.assertTrue(any("pstack-runtime/gate.md:3: names light mode" in finding for finding in check.check_tree(root)))
+            other = root / "demo"
+            other.mkdir()
+            (other / "SKILL.md").write_text("---\nname: demo\ndescription: d\n---\n\nLight mode, per [Modes](SKILL.md#modes).\n")
+            self.assertTrue(any("demo/SKILL.md:6: names light mode" in finding for finding in check.check_tree(root)))
 
 
 class PlaybookBulletCheckTest(unittest.TestCase):

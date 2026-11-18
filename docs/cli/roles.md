@@ -16,7 +16,7 @@ Roles map a pstack role name to a list of seats. A seat is "inherit" or a target
 
 Two optional keys tune the file. "exclude" is a list of rules that refuse a seat by model-id glob, by declared option, by the provider instance id, by the role name, or by a combination of them. The merged list is the union of the user and project lists. User rules come first. "backups" maps a role to the seats roles.py backup tries, in order, after a usage limit.
 
-`<command>` is one of `show`, `validate`, `write`, `mode`, `check-brief`, `catalog`, `backup`.
+`<command>` is one of `show`, `validate`, `write`, `mode`, `light`, `gate-brief`, `check-brief`, `catalog`, `backup`.
 
 ## roles.py show
 
@@ -97,6 +97,35 @@ roles.py mode [--cwd CWD] [--config CONFIG] [--project-config PROJECT_CONFIG] [-
 | `--brief-mode BRIEF_MODE` |  | `full`, `light` |  | brief mode; overrides session, coordinator, project, and user modes |
 | `--session-mode SESSION_MODE` |  | `full`, `light` |  | session mode; used after brief and before coordinator, project, and user modes |
 | `--coordinator-mode COORDINATOR_MODE` |  | `full`, `light` |  | coordinator mode; used after brief and session, before project and user modes |
+
+## roles.py light
+
+```text
+roles.py light [--spawn SPAWN]
+```
+
+| Argument | Required | Choices | Default | Help |
+| --- | --- | --- | --- | --- |
+| `--spawn SPAWN` |  |  |  | the label or alias of the light row for the spawn you are about to make, such as 'code delegate'; omit to list the labels |
+
+## roles.py gate-brief
+
+```text
+roles.py gate-brief --head HEAD [--author AUTHOR] [--verifier VERIFIER] [--base BASE] [--previous-sha PREVIOUS_SHA] [--previous-review PREVIOUS_REVIEW] [--design DESIGN] [--trail TRAIL] [--thread THREAD] [--same-family]
+```
+
+| Argument | Required | Choices | Default | Help |
+| --- | --- | --- | --- | --- |
+| `--head HEAD` | yes |  |  | full head SHA under review |
+| `--author AUTHOR` (repeatable) |  |  |  | one provider/model that wrote the diff. Repeat for each |
+| `--verifier VERIFIER` |  |  |  | the provider/model the seat step chose |
+| `--base BASE` |  |  |  | base ref, for round one |
+| `--previous-sha PREVIOUS_SHA` |  |  |  | previous reviewed full SHA, for a later round |
+| `--previous-review PREVIOUS_REVIEW` |  |  |  | previous round's review file, for a later round |
+| `--design DESIGN` |  |  |  | the chosen design's path, when the light architect step picked one of two sketches |
+| `--trail TRAIL` |  |  |  | the decision log path, when the run kept a show-me-your-work trail |
+| `--thread THREAD` |  |  |  | the run's threadId, with --trail |
+| `--same-family` |  |  |  | the verifier seat fell back to the author's family |
 
 ## roles.py check-brief
 

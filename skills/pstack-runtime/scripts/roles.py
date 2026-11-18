@@ -114,7 +114,7 @@ _sys.dont_write_bytecode = True
 try:
     from _roles import seam
     _seen = {}
-    for _name in ("base", "seats", "config", "mode", "resolve", "panel", "problems", "commands", "backup", "brief"):
+    for _name in ("base", "seats", "config", "mode", "resolve", "panel", "problems", "commands", "backup", "brief", "light", "gate"):
         _module = _importlib.import_module("_roles." + _name)
         for _key in _module.__all__:
             assert _key not in _seen, f"roles: {_key} is defined in both {_seen[_key]} and {_name}"
@@ -182,6 +182,19 @@ def main(argv=None):
                       help="recorded one-line escalation reason; forces full mode and wins over paths and send-backs")
     mode.add_argument("--playbook", help="playbook stem, such as bug-fix")
     mode.add_argument("--attempt", choices=ATTEMPTS)
+    light = sub.add_parser("light")
+    light.add_argument("--spawn", help="the label or alias of the light row for the spawn you are about to make, such as 'code delegate'; omit to list the labels")
+    gate_brief = sub.add_parser("gate-brief")
+    gate_brief.add_argument("--head", required=True, help="full head SHA under review")
+    gate_brief.add_argument("--author", action="append", default=None, help="one provider/model that wrote the diff. Repeat for each")
+    gate_brief.add_argument("--verifier", help="the provider/model the seat step chose")
+    gate_brief.add_argument("--base", help="base ref, for round one")
+    gate_brief.add_argument("--previous-sha", help="previous reviewed full SHA, for a later round")
+    gate_brief.add_argument("--previous-review", help="previous round's review file, for a later round")
+    gate_brief.add_argument("--design", help="the chosen design's path, when the light architect step picked one of two sketches")
+    gate_brief.add_argument("--trail", help="the decision log path, when the run kept a show-me-your-work trail")
+    gate_brief.add_argument("--thread", help="the run's threadId, with --trail")
+    gate_brief.add_argument("--same-family", action="store_true", help="the verifier seat fell back to the author's family")
     check_brief = sub.add_parser("check-brief")
     check_brief.add_argument("brief", help="brief file to check")
     catalog = sub.add_parser("catalog")
@@ -226,6 +239,8 @@ def main(argv=None):
             "write": command_write,
             "catalog": command_catalog_merge,
             "check-brief": command_check_brief,
+            "light": command_light,
+            "gate-brief": command_gate_brief,
             "mode": command_mode,
             "backup": command_backup,
         }[args.command](args) or 0

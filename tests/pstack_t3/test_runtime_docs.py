@@ -58,7 +58,7 @@ class MuseDocTest(unittest.TestCase):
         self.assertIn("Muse supports only `approval-required` and `full-access`.", permissions)
         self.assertIn("Read `runtimeMode` from `orchestrator_capabilities` before you seat Muse.", permissions)
         self.assertIn('replace the Muse seat with `"inherit"` per [Fallback](SKILL.md#fallback)', permissions)
-        self.assertIn("never lower it", permissions)
+        self.assertIn("never lower it", runtime_section("### Permissions", "\n### "))
 
     def test_skill_locations_exclude_muse_from_the_picker(self):
         section = runtime_doc_section("host.md", "## Skill locations")
