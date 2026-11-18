@@ -76,22 +76,24 @@ def install_hook_steps(view, scope, user, selected, root):
     steps = []
     for hook in hooks.managed(dirs, root):
         holds = hooks.matching(hooks.settings(hook.file), hook)
-        recorded = hooks.row(hook) in view.hooks
+        record = hooks.row(hook, root)
+        recorded = record in view.hooks
         if recorded and holds:
             continue
-        steps.append(Step("hook", hook.file, hook=hook, add_hooks=() if recorded else (hooks.row(hook),)))
+        steps.append(Step("hook", hook.file, hook=hook, add_hooks=() if recorded else (record,)))
     return tuple(steps)
 
 
-def uninstall_hook_steps(view, selected):
-    """The hook steps an uninstall plans: one per recorded hook of a selected harness.
+def uninstall_hook_steps(view, selected, root):
+    """The hook steps an uninstall plans: one per recorded hook of a selected harness this checkout owns.
 
+    A row another checkout recorded names its own command and its own copy of the script, so this run leaves it alone.
     The settings file is read here, so a file that will not parse refuses the run before any write.
     """
     steps = []
     for raw in view.hooks:
         hook = hooks.parse(raw)
-        if hook is None or hook.harness not in set(selected):
+        if hook is None or hook.harness not in set(selected) or hooks.owner(raw) != root:
             continue
         hooks.settings(hook.file)
         steps.append(Step("unhook", hook.file, hook=hook, remove_hooks=(raw,)))
@@ -215,7 +217,7 @@ def plan_uninstall(view, root, selected, holds):
     for row in view.backups:
         if unreached(row) and covered(row.harnesses) and strays.held_beside(row.backup) is None:
             occupied.append(KEPT_UNREACHED.format(backup=row.backup, original=row.original))
-    steps.extend(uninstall_hook_steps(view, selected))
+    steps.extend(uninstall_hook_steps(view, selected, root))
     return Plan(tuple(steps), occupied=tuple(occupied), shared=tuple(sorted(shared)), kept=kept)
 
 def ready(step, root):

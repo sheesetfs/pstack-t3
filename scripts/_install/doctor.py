@@ -183,11 +183,11 @@ def hook_finding(args, root, raw, data):
 
 
 def hook_findings(args, root, view):
-    """The Findings for each recorded hook its settings file does not match, and an Unread for a file doctor could not read."""
+    """The Findings for each recorded hook this checkout owns and its settings file does not match, and an Unread for a file doctor could not read."""
     findings, unread = [], []
     for raw in view.hooks:
         hook = hooks.parse(raw)
-        if hook is None:
+        if hook is None or hooks.owner(raw) != root:
             continue
         try:
             found = hook_finding(args, root, raw, hooks.settings(hook.file))

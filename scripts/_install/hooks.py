@@ -1,7 +1,8 @@
 """The harness hooks pstack-t3 owns in a harness settings file.
 
 One `Hook` is one registry entry: the harness, its settings file, the event, the matcher, and the exact command
-string pstack-t3 installs. The install manifest records a row per hook, so install and uninstall know what they own.
+string pstack-t3 installs. The install manifest records a row per hook with the checkout that recorded it, the way a
+link row records its checkout, so install and uninstall know what they own.
 
 Install adds the command to the event list only when no identical command is in the file, and writes the file
 atomically. Uninstall removes that exact command and the containers it empties, and leaves every other entry and
@@ -62,15 +63,22 @@ def managed(dirs, root):
     )
 
 
-def row(hook):
-    """The manifest row that records a hook."""
+def row(hook, root):
+    """The manifest row that records a hook this checkout installs."""
     return {
         "harness": hook.harness,
         "file": hook.file,
         "event": hook.event,
         "matcher": hook.matcher,
         "command": hook.command,
+        "checkout": root,
     }
+
+
+def owner(raw):
+    """The checkout a manifest row records, or None when the row records none."""
+    found = raw.get("checkout") if isinstance(raw, dict) else None
+    return found if isinstance(found, str) else None
 
 
 def parse(raw):

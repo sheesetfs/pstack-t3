@@ -14,6 +14,7 @@ isolation.install()
 
 import json
 import os
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -23,6 +24,8 @@ from .support import ROOT
 from .support import _env
 from .support import _run
 from .support import legacy_file
+from .support import make_checkout
+from .support import provider_link
 from .support import run_install
 from .support import setUpModule
 
@@ -84,12 +87,28 @@ class SessionHookTest(unittest.TestCase):
         self.assertEqual(entries(document), [{"type": "command", "command": COMMAND}])
         recorded = json.loads(legacy_file(self.home).read_text())["hooks"]
         self.assertEqual(recorded, [{"harness": "claude", "file": str(self.settings_path()), "event": "SessionStart",
-                                     "matcher": MATCHER, "command": COMMAND}])
+                                     "matcher": MATCHER, "command": COMMAND, "checkout": str(ROOT)}])
         before = self.settings_path().read_bytes()
         again = self.install()
         self.assertNotIn("added the SessionStart hook", again.stdout)
         self.assertIn("already installed", again.stdout)
         self.assertEqual(self.settings_path().read_bytes(), before)
+
+    def test_uninstall_from_another_checkout_leaves_the_hook_that_checkout_installed(self):
+        checkout = make_checkout(self.home, "other")
+        shutil.copy(SCRIPT, checkout / "skills/pstack-runtime/session-start.sh")
+        installed = _run(self.home, checkout, ("install", "--harness", "claude"))
+        self.assertEqual(installed.returncode, 0, installed.stderr)
+        theirs = "sh " + str(checkout / "skills/pstack-runtime/session-start.sh")
+        self.assertEqual(len(entries(self.settings(), theirs)), 1)
+
+        completed = self.uninstall()
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertEqual(len(entries(self.settings(), theirs)), 1)
+        self.assertTrue(provider_link(self.home, "claude", "alpha").exists())
+        doctor = run_install(self.home, "doctor", "--harness", "claude")
+        self.assertNotIn(f"pstack-t3 records the command {theirs}", doctor.stdout)
 
     def test_uninstall_removes_only_its_own_entry(self):
         document = {"permissions": {"allow": ["Bash(ls:*)"]}, "hooks": {"SessionStart": [FOREIGN]}}
