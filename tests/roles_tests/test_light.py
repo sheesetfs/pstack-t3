@@ -59,7 +59,8 @@ class LightRowsTest(unittest.TestCase):
         completed = run_light("--spawn", "gate review")
         self.assertEqual(completed.returncode, 0, completed.stderr)
         self.assertTrue(completed.stdout.startswith("No light row names 'gate review'."))
-        self.assertIn("Rows: `how`; `why`;", completed.stdout)
+        self.assertIn("Run roles.py light with no --spawn to list the rows.", completed.stdout)
+        self.assertNotIn("`why`", completed.stdout)
 
     def test_no_spawn_lists_the_rows(self):
         completed = run_light()

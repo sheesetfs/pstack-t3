@@ -13,8 +13,9 @@ Tool names may carry a harness prefix, such as `mcp__t3-code__delegate_task` or 
 
 | File | Read when |
 | --- | --- |
-| [roles.md](roles.md) | before resolving seats, weighing seat agreement, writing or validating a roles file, or when `roles.py` prints a note the section does not explain |
+| [roles.md](roles.md) | before you write or validate a roles file or a budget, weigh seat agreement, follow a rejected target's fallback, or when `roles.py show` reports `catalog-required` or prints a note or `info:` line this file explains |
 | [waiting.md](waiting.md) | before collecting child results or waiting on children |
+| [wait-cases.md](wait-cases.md) | when a child's final message sits on an open run, a wait on a child returns at once while its task works, a child asks a question or waits on an approval, or before `mode: "wait"` |
 | [host.md](host.md) | when the T3 tools are absent, when a thread settles or snoozes, before you install or locate skills, before interpreting `hasPendingChildRuns`, `hasPendingQuestion`, or a `mode: "wait"` return, when a child's question wakes this thread, or for history notes |
 | [threads.md](threads.md) | before `t3_thread_launch`, `create_threads`, `schedule_task`, `t3_thread_configure`, `t3_queue`, `t3_thread_transfer`, `run_scheduled_task_now`, or pausing a finite program's schedule |
 | [webhooks.md](webhooks.md) | before creating a webhook schedule, asking for a signing secret, or choosing between a webhook and a polling schedule |
@@ -24,7 +25,7 @@ Tool names may carry a harness prefix, such as `mcp__t3-code__delegate_task` or 
 | [gate-review.md](gate-review.md) | before reusing a gate verdict |
 | [failures.md](failures.md) | when a target is rejected, a child fails, stalls, or returns nothing usable, on usage limit, or after restart |
 | [verification.md](verification.md) | before UI or device or CLI verification |
-| [delegation.md](delegation.md) | before spawning a child task or writing its brief |
+| [delegation.md](delegation.md) | before you seat a child on OpenCode or Muse, brief a read-only Claude child that reads through a merged T3 tool, or reuse a child for new work |
 | [modes.md](modes.md) | when a deadline or timebox applies, before an owner's brief or `message`, before a user's explicit reflect, or on an escalation or a contested design |
 | [vocabulary.md](vocabulary.md) | when a skill or brief names a pstack or Cursor term without its T3 tool |
 | [isolation.md](isolation.md) | before isolating a writing child or running a heavy command |
@@ -36,13 +37,44 @@ When a deadline, timebox, or "aim for N minutes" applies, read [Deadlines](modes
 
 ## Delegation
 
+1. Call `orchestrator_capabilities` once per session before the first delegation, and again after a delegation fails on a target. It returns `parentThreadId` (this thread's own ID, for `t3_thread_read` on yourself), `inheritedProviderInstanceId` and `inheritedModel` (this thread's own seat), `providers[]`, each with `providerInstanceId`, `models[]` and their `options`, `canRunChildTask`, `canRunCrossProviderChildTask`, and `constraints`. Treat a provider with `canRunChildTask: false` as unavailable and report its `constraints` if a role needed it.
+
+2. Resolve the role's targets per [Roles](#roles). Save the step 1 result to a file with the host's file tool, then run the command below with the mode flag from [Resolve and carry the mode](#resolve-and-carry-the-mode). `<pstack-runtime>` is the directory that holds this file. Always pass `--parent` with the values from step 1, because the saved catalog records whichever thread ran setup. Pass the seat it prints unchanged.
+
+   ```bash
+   python3 <pstack-runtime>/scripts/roles.py show --cwd "$PWD" --catalog <file> --parent "<inheritedProviderInstanceId>/<inheritedModel>" --role "<name>" [--brief-mode <value> | --session-mode light]
+   ```
+
+3. Spawn every independent child in one message:
+
+   ```json
+   {
+     "task": "<self-contained brief>",
+     "title": "<role>: <slice>",
+     "role": "review",
+     "mode": "async",
+     "target": {"providerInstanceId": "claudeAgent", "model": "claude-opus-5-5", "options": {"effort": "xhigh"}},
+     "clientRequestId": "<skill>-<slug>-<seat>"
+   }
+   ```
+
+   - `role` is one of `implementation`, `research`, `review`, `design`, `test`, `general`.
+   - Omit `target` for an `inherit` seat.
+   - After a `t3_thread_launch` or `delegate_task` call whose seat has `options`, read the applied options from the launch result's `modelSelection.options` or from `t3_thread_configure` with no `modelSelection` on the child's `childThreadId`, and never call again with the options removed. Each applied option is one object `{"id": <key>, "value": <value>}`. A missing option or a different value is a mismatch. On a mismatch, or when the call is refused for its `options`, stop that child. Report the tool's error text. Call `task_cancel` for a child task. Call `t3_thread_interrupt` and then `t3_thread_wait` for a thread. A Cursor harness sent `options` as a string, T3 refused the call, and the child then dropped the options.
+   - Before you seat a child on OpenCode, read [OpenCode children](delegation.md#opencode-children).
+   - Use a stable `clientRequestId` so a retried call does not spawn a duplicate.
+   - Retain every returned `taskId` in your todo list or work log.
+
 4. A child starts with only its brief. It sees none of this conversation. Put the goal, the exact paths or SHAs, how to verify, and the report shape in the brief. Point at files instead of pasting large context. Write tool steps as plain verbs ("read", "search the repo", "run"), because the child may be a different provider with different tool names. When the role entry `roles.py show` printed for the child's seat has `haikuBrief`, paste its paragraphs unchanged, in order, at the end of the brief, per [Claude Haiku 5.5](#claude-haiku-55). A code-writing child inside a poteto-mode playbook opens with the poteto-agent persona body. Below it, paste unchanged the lines `python3 <pstack-runtime>/scripts/roles.py mode --cwd "$PWD" --playbook <name> --attempt <kind> [--brief-mode <value> | --session-mode light]` prints, per [Modes](#modes). They start with the `Playbook: playbooks/<name>.md` line, such as `Playbook: playbooks/feature.md`, and carry the required `Mode:` line. Write no `Playbook:` line of your own, because a second one fails the check. See [Resolve and carry the mode](#resolve-and-carry-the-mode) for the `Attempt:` and `Waived by mode:` lines. Copy the printed `Mode:` value into `--brief-mode` on the `roles.py show` call that seats the delegate, and pass no other mode flag. Write that brief to a file and run `python3 <pstack-runtime>/scripts/roles.py check-brief <file>` before `delegate_task`. Exit 1 names what is missing. Fix the brief, run the check again, and pass the checked text unchanged. A seat that matches this thread's model, or an edit that looks small, is not a `skip:` reason for the code delegate.
 
-Steps 1 to 3, 5, and 6 live in [delegation.md](delegation.md).
+5. Collect results. Read [waiting.md](waiting.md) before you collect child results or wait on a child.
+6. You own every child's output. Read the diff or the evidence yourself before you report it. A child's "done" is a claim, not a verification.
+
+Same-provider native subagent tools (Claude's Agent tool, Codex's subagents) are fine for an `inherit` seat when they run the parent's model. Use `delegate_task` for every other seat, including same-provider seats on another model. Never substitute a top-level thread for a child task.
 
 ### Permissions
 
-The permission modes live in [delegation.md](delegation.md).
+Children inherit this thread's runtime mode and interaction mode. Omit `runtimeMode` so the child inherits. Never raise it above the parent's, and never lower it. A child in `approval-required` stops at its first command on an approval request that no tool can answer, so it never finishes. A read-only reviewer is a read-only brief: say "do not edit files, commit, or push" in the task. Before you brief a read-only Claude child that reads through `t3_queue`, `t3_pending_request`, `t3_thread_transfer`, or `t3_thread_configure`, or before you seat Muse, read [Permissions](delegation.md#permissions).
 
 ### Failure handling
 
@@ -52,7 +84,7 @@ When `delegate_task` rejects a target, or a child fails, stalls, or returns noth
 
 ### Fresh children by default
 
-The fresh-child rule lives in [delegation.md](delegation.md).
+Before a fix round, a follow-up, a retry, or any `t3_thread_send` to a child, read [Fresh children by default](delegation.md#fresh-children-by-default).
 
 ## Roles
 
@@ -104,12 +136,12 @@ Every brief whose child resolves seats or spawns carries the mode. Get the lines
 python3 <pstack-runtime>/scripts/roles.py mode --cwd "$PWD" [--playbook <name> --attempt <kind>] [--brief-mode <value> | --session-mode light]
 ```
 
-- A code delegate's brief passes `--playbook <name> --attempt <kind>`. `<kind>` is `first` for new work, `fix` after a send-back, and `bounce` after a queue bounce. Paste the printed lines unchanged under the persona body. They start with the `Playbook:` line, so write no `Playbook:` line of your own. The printed lines include `Attempt:`. Under `Mode: light` they also include any `Waived by mode:` line. Under `Mode: full` there is no `Waived by mode:` line, and the brief must not add one. See [Delegation](#delegation) step 4.
+- A code delegate's brief passes `--playbook <name> --attempt <kind>`. `<kind>` is `first` for new work, `fix` after a send-back, and `bounce` after a queue bounce. The printed lines include `Attempt:`. Under `Mode: light` they also include any `Waived by mode:` line. Under `Mode: full` there is no `Waived by mode:` line, and the brief must not add one. See [Delegation](#delegation) step 4.
 - An owner, sub-coordinator, unit worker, visual-parity owner, or landing writer is not a code delegate. Before you write its brief or `message`, read [Owner briefs](modes.md#owner-briefs).
 - A read-only leaf, such as a `how` explainer or a reviewer, gets no `Mode:` line. It resolves no seat.
 - A light session with no brief runs the same command with `--playbook <name> --attempt first` for its own playbook. Its `Waived by mode:` line names the steps this thread skips.
 
-Before a light `roles.py show` or `roles.py backup` call, read [roles.md](roles.md#budget).
+Before a light `roles.py backup` call, before you set a budget, or when a light `roles.py show` prints an `info:` line, read [Budget](roles.md#budget).
 
 An explicit budget wins. Pass the live catalog and `--parent` on every light `show` call, per [Roles](#roles), so a configured `inherit` seat of a capped role gets the cap.
 
@@ -123,7 +155,7 @@ Before every spawn in light mode, run this and run the row it prints. With no `-
 python3 <pstack-runtime>/scripts/roles.py light --spawn <name>
 ```
 
-In light mode, run the row for the spawn you are about to make. A step its row does not change runs as the skill says. A smaller fan-out in a row is how that step runs, not a waiver. Waived steps come only from the brief's `Waived by mode:` line, which `roles.py mode` prints from `LIGHT_WAIVERS`. Never add a waiver of your own. No light fan-out wave has more than 3 children in flight. A wave with more slices batches them into 3 briefs and keeps every slice covered.
+A step its row does not change runs as the skill says. A smaller fan-out in a row is how that step runs, not a waiver. Waived steps come only from the brief's `Waived by mode:` line, which `roles.py mode` prints from `LIGHT_WAIVERS`. Never add a waiver of your own. No light fan-out wave has more than 3 children in flight. A wave with more slices batches them into 3 briefs and keeps every slice covered.
 
 A send-back in light mode is a fix attempt with a fresh worker. Its brief carries the findings, the old head, and the `Attempt: fix` lines `roles.py mode` prints.
 

@@ -64,7 +64,7 @@ def command_light(args):
     found = matching_rows(rows, args.spawn)
     if not found:
         print(f"No light row names '{args.spawn}'. That spawn runs as its skill or playbook says, under the runtime's Light behavior rules.")
-        print(f"Rows: {names}")
+        print("Run roles.py light with no --spawn to list the rows.")
         return 0
     for spawn, behavior in found:
         print(f"{spawn}: {behavior}")
