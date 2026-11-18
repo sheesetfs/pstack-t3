@@ -189,9 +189,29 @@ class ModesTest(unittest.TestCase):
             text,
         )
 
+    def test_delegation_step_2_offers_the_heredoc_route(self):
+        step = self.runtime.split("2. Resolve the role's targets", 1)[1].split("\n3. ", 1)[0]
+        self.assertIn("with the host's file tool", step)
+        self.assertIn("`--catalog -`", step)
+        self.assertIn("[Where roles live](roles.md#where-roles-live)", step)
+
+    def test_each_light_call_site_names_its_label(self):
+        runtime = self.runtime.split("### Light behavior", 1)[1].split("\n### ", 1)[0]
+        self.assertIn('roles.py light --spawn "<label>"', runtime)
+        self.assertIn("such as `code delegate` or `gate review`", runtime)
+        feature = (ROOT / "skills/poteto-mode/playbooks/feature.md").read_text()
+        step = feature.split("4. Delegate code-writing", 1)[1].split("\n5. ", 1)[0]
+        self.assertIn('roles.py light --spawn "code delegate"', step)
+        brief = self.gate.split("2. **Brief.**", 1)[1].split("\n3. **Verdict.**", 1)[0]
+        self.assertIn('roles.py light --spawn "gate review"', brief)
+
     def test_gate_brief_pastes_persona_then_contract(self):
         paragraph = self.gate.split("2. **Brief.**", 1)[1].split("\n3. **Verdict.**", 1)[0]
-        self.assertIn("roles.py gate-brief --head <full head sha> --base <base ref>", paragraph)
+        self.assertIn(
+            "roles.py gate-brief --head <full head sha> --author <provider/model> --verifier <provider/model> --base <base ref>",
+            paragraph,
+        )
+        self.assertIn("Pass `--author` once per model that wrote the diff, and `--verifier` from step 1", paragraph)
         self.assertIn("the body of `agents/comment-sicko.md` unchanged with a request for its findings", paragraph)
         self.assertIn("the gate contract unchanged right after that body", paragraph)
         self.assertIn("add the child's own verification tasks after its output", paragraph)

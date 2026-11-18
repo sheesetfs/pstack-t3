@@ -39,7 +39,7 @@ When a deadline, timebox, or "aim for N minutes" applies, read [Deadlines](modes
 
 1. Call `orchestrator_capabilities` once per session before the first delegation, and again after a delegation fails on a target. It returns `parentThreadId` (this thread's own ID, for `t3_thread_read` on yourself), `inheritedProviderInstanceId` and `inheritedModel` (this thread's own seat), `providers[]`, each with `providerInstanceId`, `models[]` and their `options`, `canRunChildTask`, `canRunCrossProviderChildTask`, and `constraints`. Treat a provider with `canRunChildTask: false` as unavailable and report its `constraints` if a role needed it.
 
-2. Resolve the role's targets per [Roles](#roles). Save the step 1 result to a file with the host's file tool, then run the command below with the mode flag from [Resolve and carry the mode](#resolve-and-carry-the-mode). `<pstack-runtime>` is the directory that holds this file. Always pass `--parent` with the values from step 1, because the saved catalog records whichever thread ran setup. Pass the seat it prints unchanged.
+2. Resolve the role's targets per [Roles](#roles). Save the step 1 result to a file with the host's file tool, then run the command below with the mode flag from [Resolve and carry the mode](#resolve-and-carry-the-mode). When that tool is missing or the result is small, paste it into the same command instead with `--catalog -` and a quoted heredoc, per [Where roles live](roles.md#where-roles-live). `<pstack-runtime>` is the directory that holds this file. Always pass `--parent` with the values from step 1, because the saved catalog records whichever thread ran setup. Pass the seat it prints unchanged.
 
    ```bash
    python3 <pstack-runtime>/scripts/roles.py show --cwd "$PWD" --catalog <file> --parent "<inheritedProviderInstanceId>/<inheritedModel>" --role "<name>" [--brief-mode <value> | --session-mode light]
@@ -149,10 +149,10 @@ Escalation only moves work toward `full`. When `roles.py mode` prints `Mode sour
 
 ### Light behavior
 
-Before every spawn in light mode, run this and run the row it prints. With no `--spawn` it lists the rows.
+Before every spawn in light mode, run this and run the row it prints. The label is the row's first cell, such as `code delegate` or `gate review`. With no `--spawn` it lists every label, and a name that matches none is refused.
 
 ```bash
-python3 <pstack-runtime>/scripts/roles.py light --spawn <name>
+python3 <pstack-runtime>/scripts/roles.py light --spawn "<label>"
 ```
 
 A step its row does not change runs as the skill says. A smaller fan-out in a row is how that step runs, not a waiver. Waived steps come only from the brief's `Waived by mode:` line, which `roles.py mode` prints from `LIGHT_WAIVERS`. Never add a waiver of your own. No light fan-out wave has more than 3 children in flight. A wave with more slices batches them into 3 briefs and keeps every slice covered.

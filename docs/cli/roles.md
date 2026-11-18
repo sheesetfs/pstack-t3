@@ -106,17 +106,19 @@ roles.py light [--spawn SPAWN]
 
 | Argument | Required | Choices | Default | Help |
 | --- | --- | --- | --- | --- |
-| `--spawn SPAWN` |  |  |  | the spawn you are about to make, such as 'code delegate'; omit to list the rows |
+| `--spawn SPAWN` |  |  |  | the label or alias of the light row for the spawn you are about to make, such as 'code delegate'; omit to list the labels |
 
 ## roles.py gate-brief
 
 ```text
-roles.py gate-brief --head HEAD [--base BASE] [--previous-sha PREVIOUS_SHA] [--previous-review PREVIOUS_REVIEW] [--design DESIGN] [--trail TRAIL] [--thread THREAD] [--same-family]
+roles.py gate-brief --head HEAD [--author AUTHOR] [--verifier VERIFIER] [--base BASE] [--previous-sha PREVIOUS_SHA] [--previous-review PREVIOUS_REVIEW] [--design DESIGN] [--trail TRAIL] [--thread THREAD] [--same-family]
 ```
 
 | Argument | Required | Choices | Default | Help |
 | --- | --- | --- | --- | --- |
 | `--head HEAD` | yes |  |  | full head SHA under review |
+| `--author AUTHOR` (repeatable) |  |  |  | one provider/model that wrote the diff. Repeat for each |
+| `--verifier VERIFIER` |  |  |  | the provider/model the seat step chose |
 | `--base BASE` |  |  |  | base ref, for round one |
 | `--previous-sha PREVIOUS_SHA` |  |  |  | previous reviewed full SHA, for a later round |
 | `--previous-review PREVIOUS_REVIEW` |  |  |  | previous round's review file, for a later round |

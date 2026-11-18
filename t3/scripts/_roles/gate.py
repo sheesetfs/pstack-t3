@@ -47,6 +47,13 @@ def _full_sha(flag, value):
     return value
 
 
+def _identity(flag, value):
+    """One provider/model seat, as `roles.py show` and the verdict line write it."""
+    if " " in value or "/" not in value:
+        raise RolesError(f"{flag} needs one provider/model identity, got '{value}'")
+    return value
+
+
 ROUNDS_HEADING = "## Rounds after the first"
 
 
@@ -76,7 +83,14 @@ def gate_brief(args):
         raise RolesError("round one needs --base, and a later round needs --previous-sha and --previous-review together")
     if (args.trail is None) != (args.thread is None):
         raise RolesError("--trail and --thread go together")
+    if not args.author:
+        raise RolesError("gate-brief needs --author, one for each model that wrote the diff")
+    if args.verifier is None:
+        raise RolesError("gate-brief needs --verifier, the seat step 1 chose")
+    authors = [_identity("--author", value) for value in args.author]
+    verifier = _identity("--verifier", args.verifier)
     lines = [f"Read-only gate review of head {head}."]
+    lines.append(f"The author is {', '.join(authors)}. The verifier is {verifier}.")
     if args.base is not None:
         lines.append(f"Read the whole diff against base {args.base} with `git diff {args.base}...{head}`.")
     else:

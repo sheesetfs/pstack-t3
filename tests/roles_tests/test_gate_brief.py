@@ -19,6 +19,9 @@ from .support import ROOT, roles, setUpModule  # noqa: F401
 
 HEAD = "a" * 40
 PREVIOUS = "b" * 40
+AUTHOR = "claudeAgent/claude-opus-5-5"
+SECOND_AUTHOR = "openai/gpt-5-5-codex"
+VERIFIER = "grokAgent/grok-4-5"
 
 
 def run_gate(*args):
@@ -34,10 +37,38 @@ def persona(name):
 
 class GateBriefTest(unittest.TestCase):
     def brief(self, *args):
-        completed = run_gate("--head", HEAD, *args)
+        completed = run_gate("--head", HEAD, "--author", AUTHOR, "--verifier", VERIFIER, *args)
         self.assertEqual(completed.returncode, 0, completed.stderr)
         self.assertEqual(completed.stderr, "")
         return completed.stdout
+
+    def test_the_brief_names_the_author_and_the_verifier(self):
+        text = self.brief("--base", "origin/main")
+        self.assertIn(f"The author is {AUTHOR}. The verifier is {VERIFIER}.", text)
+        self.assertLess(text.index(f"The author is {AUTHOR}"), text.index("Apply the comment rules below"))
+
+    def test_every_author_is_named(self):
+        completed = run_gate("--head", HEAD, "--author", AUTHOR, "--author", SECOND_AUTHOR,
+                             "--verifier", VERIFIER, "--base", "main")
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn(f"The author is {AUTHOR}, {SECOND_AUTHOR}. The verifier is {VERIFIER}.", completed.stdout)
+
+    def test_missing_or_malformed_identities_are_refused(self):
+        for args, message in (
+            (("--head", HEAD, "--base", "main"), "gate-brief needs --author, one for each model that wrote the diff"),
+            (("--head", HEAD, "--author", AUTHOR, "--base", "main"), "gate-brief needs --verifier, the seat step 1 chose"),
+            (("--head", HEAD, "--author", AUTHOR, "--verifier", VERIFIER, "--base", "main"), None),
+            (("--head", HEAD, "--author", "opus", "--verifier", VERIFIER, "--base", "main"), "--author needs one provider/model identity"),
+            (("--head", HEAD, "--author", AUTHOR, "--verifier", "grok 4.5", "--base", "main"), "--verifier needs one provider/model identity"),
+        ):
+            with self.subTest(args=args):
+                completed = run_gate(*args)
+                if message is None:
+                    self.assertEqual(completed.returncode, 0, completed.stderr)
+                    continue
+                self.assertEqual(completed.returncode, 2)
+                self.assertEqual(completed.stdout, "")
+                self.assertIn(message, completed.stderr)
 
     def test_contract_matches_the_literal(self):
         self.assertEqual(roles.GATE_CONTRACT, GATE_CONTRACT)
@@ -80,7 +111,7 @@ class GateBriefTest(unittest.TestCase):
             (("--head", HEAD, "--base", "main", "--trail", "/tmp/log.md"), "--trail and --thread go together"),
         ):
             with self.subTest(args=args):
-                completed = run_gate(*args)
+                completed = run_gate("--author", AUTHOR, "--verifier", VERIFIER, *args)
                 self.assertEqual(completed.returncode, 2)
                 self.assertEqual(completed.stdout, "")
                 self.assertIn(message, completed.stderr)
