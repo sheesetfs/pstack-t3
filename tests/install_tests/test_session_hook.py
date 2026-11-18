@@ -132,6 +132,22 @@ class SessionHookTest(unittest.TestCase):
         self.assertEqual(completed.returncode, 0, completed.stderr)
         self.assertEqual(self.settings(), {"hooks": {"SessionStart": [{"matcher": MATCHER, "hooks": [dict(FOREIGN["hooks"][0])]}]}})
 
+    def test_a_hooks_value_of_another_shape_refuses_before_a_link_goes(self):
+        self.install()
+        html = json.dumps({"hooks": []}) + "\n"
+        self.settings_path().write_text(html)
+        link = provider_link(self.home, "claude", "pstack-runtime")
+        self.assertTrue(link.exists())
+        manifest = legacy_file(self.home).read_text()
+
+        completed = self.uninstall()
+
+        self.assertEqual(completed.returncode, 1)
+        self.assertIn(f"{self.settings_path()}: hooks is not an object", completed.stderr)
+        self.assertEqual(self.settings_path().read_text(), html)
+        self.assertTrue(link.exists())
+        self.assertEqual(legacy_file(self.home).read_text(), manifest)
+
     def test_a_file_that_is_not_json_refuses_and_changes_nothing(self):
         self.settings_path().parent.mkdir(parents=True)
         self.settings_path().write_text("{ not json")

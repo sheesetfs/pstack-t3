@@ -88,14 +88,15 @@ def uninstall_hook_steps(view, selected, root):
     """The hook steps an uninstall plans: one per recorded hook of a selected harness this checkout owns.
 
     A row another checkout recorded names its own command and its own copy of the script, so this run leaves it alone.
-    The settings file is read here, so a file that will not parse refuses the run before any write.
+    The settings file is read and its shape checked here, so a file that will not parse or holds another shape under
+    `hooks` refuses the run before any write.
     """
     steps = []
     for raw in view.hooks:
         hook = hooks.parse(raw)
         if hook is None or hook.harness not in set(selected) or hooks.owner(raw) != root:
             continue
-        hooks.settings(hook.file)
+        hooks.groups(hooks.settings(hook.file), hook)
         steps.append(Step("unhook", hook.file, hook=hook, remove_hooks=(raw,)))
     return tuple(steps)
 
