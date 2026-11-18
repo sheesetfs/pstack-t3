@@ -53,7 +53,7 @@ RUNTIME_LINK = re.compile(r"pstack-runtime/SKILL\.md#([^)\s]+)\)")
 class ModesTest(unittest.TestCase):
     def setUp(self):
         self.runtime = (ROOT / "skills/pstack-runtime/SKILL.md").read_text()
-        self.gate = (ROOT / "skills/pstack-runtime/light.md").read_text().split("## Gate review", 1)[1]
+        self.gate = (ROOT / "skills/pstack-runtime/gate.md").read_text()
 
     def test_every_pointer_site_holds_the_pointer_once_outside_a_fence(self):
         for path, kind in MODE_POINTER_SITES.items():
@@ -132,7 +132,8 @@ class ModesTest(unittest.TestCase):
         self.assertIn("Run `/no-comments` before review.", text)
 
     def test_gate_contract_is_literal(self):
-        self.assertEqual(gate_contract(self.gate), GATE_CONTRACT)
+        self.assertEqual(roles.GATE_CONTRACT, GATE_CONTRACT)
+        self.assertNotIn("Gate review contract.", self.gate)
 
     def test_seat_rule_is_literal(self):
         self.assertEqual(seat_rule(self.runtime), SEAT_RULE)
@@ -188,9 +189,11 @@ class ModesTest(unittest.TestCase):
         )
 
     def test_gate_brief_pastes_persona_then_contract(self):
-        paragraph = brief_paragraph(self.gate)
-        self.assertIn("Paste the body of `agents/comment-sicko.md` unchanged", paragraph)
-        self.assertIn("paste the gate contract below unchanged", paragraph)
+        paragraph = self.gate.split("2. **Brief.**", 1)[1].split("\n3. **Verdict.**", 1)[0]
+        self.assertIn("roles.py gate-brief --head <full head sha> --base <base ref>", paragraph)
+        self.assertIn("the body of `agents/comment-sicko.md` unchanged with a request for its findings", paragraph)
+        self.assertIn("the gate contract unchanged right after that body", paragraph)
+        self.assertIn("add the child's own verification tasks after its output", paragraph)
         self.assertNotIn("and ask for that skill's checks", self.gate)
 
     def test_every_gate_review_row_links_gate_review(self):

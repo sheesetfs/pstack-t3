@@ -42,6 +42,11 @@ def _header_cells(line):
     return [cell.replace("`", "").replace("*", "").strip().casefold() for cell in line.strip().strip("|").split("|")]
 
 
+def _links_modes(rel_s, line):
+    """A runtime file links its own SKILL.md by a relative path. Any other file names pstack-runtime/SKILL.md."""
+    return "pstack-runtime/SKILL.md#" in line or (rel_s.startswith("pstack-runtime/") and "](SKILL.md#" in line)
+
+
 def light_table_findings(rel_s, text, cells):
     if rel_s in ("pstack-runtime/SKILL.md", "pstack-runtime/light.md"):
         return []
@@ -56,7 +61,7 @@ def light_table_findings(rel_s, text, cells):
             )
         if restated:
             findings.append(f"{rel_s}:{number}: light table restated. Link pstack-runtime/SKILL.md#modes instead of pasting it: {line.strip()[:120]}")
-        elif LIGHT_MODE_NAME.search(line) and "pstack-runtime/SKILL.md#" not in line:
+        elif LIGHT_MODE_NAME.search(line) and not _links_modes(rel_s, line):
             findings.append(f"{rel_s}:{number}: names light mode without a link to the runtime's Modes section. Link pstack-runtime/SKILL.md#modes: {line.strip()[:120]}")
     return findings
 

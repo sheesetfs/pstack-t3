@@ -20,6 +20,7 @@ Tool names may carry a harness prefix, such as `mcp__t3-code__delegate_task` or 
 | [webhooks.md](webhooks.md) | before creating a webhook schedule, asking for a signing secret, or choosing between a webhook and a polling schedule |
 | [secrets.md](secrets.md) | before you ask the user for a secret, or before a shell command needs a token, deploy key, or password |
 | [light.md](light.md) | before you add or edit a light row. Before a light spawn, run `roles.py light` per [Light behavior](#light-behavior) instead |
+| [gate.md](gate.md) | before you launch a gate review or act on its verdict |
 | [gate-review.md](gate-review.md) | before reusing a gate verdict |
 | [failures.md](failures.md) | on usage limit or after restart |
 | [verification.md](verification.md) | before UI or device or CLI verification |
@@ -167,7 +168,7 @@ A send-back in light mode is a fix attempt with a fresh worker. Its brief carrie
 
 ### Gate review
 
-The gate procedure lives in [light.md](light.md#gate-review).
+The gate procedure lives in [gate.md](gate.md).
 
 ### Announcement
 
