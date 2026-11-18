@@ -61,6 +61,8 @@ Create top-level threads only when the user asked for separate threads or invoke
 
 ## Scheduling
 
+`schedule_task` creates recurring work in T3's scheduler. It runs even when no turn is active, so it replaces the cadences the `schedule_task` row of [Vocabulary](vocabulary.md) names, such as Cursor automations and hourly ticks.
+
 Call `schedule_task` with this shape.
 
 ```json

@@ -23,6 +23,11 @@ import roles  # noqa: E402
 from tests.pstack_t3.support import runtime_doc_section, runtime_section, runtime_bullet
 
 
+def failure_handling():
+    """The runtime's Failure handling stub and the failures.md section it points at."""
+    return runtime_section("### Failure handling", "\n### ") + runtime_doc_section("failures.md", "## Failure handling")
+
+
 class StalledChildDocTest(unittest.TestCase):
     def test_delegation_step_5_bounds_an_open_child(self):
         waiting = (ROOT / "t3/added/pstack-runtime/waiting.md").read_text()
@@ -84,7 +89,7 @@ class StalledChildDocTest(unittest.TestCase):
         self.assertIn("Read [waiting.md](waiting.md)", step)
 
     def test_failure_handling_keeps_the_two_minute_clock_out(self):
-        section = runtime_section("### Failure handling", "### Fresh children by default")
+        section = failure_handling()
         self.assertNotIn("two minutes", section)
         self.assertNotIn("120000", section)
         self.assertIn("holds the result the brief asked for", section)
@@ -95,9 +100,9 @@ class StalledChildDocTest(unittest.TestCase):
         self.assertIn("never lower it", section)
 
     def test_failure_handling_names_a_stalled_child(self):
-        text = (ROOT / "t3/runtime.md").read_text()
-        section = text.split("### Failure handling", 1)[1].split("### Fresh children by default", 1)[0]
-        self.assertIn("A stalled child", section)
+        self.assertIn("A stalled child", failure_handling())
+        stub = runtime_section("### Failure handling", "\n### ")
+        self.assertIn("read [Failure handling](failures.md#failure-handling)", stub)
 
     def test_no_source_tells_a_parent_to_end_its_turn_on_an_open_child(self):
         unbounded = re.compile(r"completion notifications? wakes?|let (?:each|the) completion|end the turn rather than wait"
@@ -124,7 +129,7 @@ class StalledChildDocTest(unittest.TestCase):
         self.assertEqual(missing, [])
 
     def test_failure_handling_relaunches_a_usage_limit_from_the_backups_key(self):
-        section = runtime_section("### Failure handling", "\n### ") + runtime_doc_section("failures.md", "## Usage limit")
+        section = failure_handling() + runtime_doc_section("failures.md", "## Usage limit")
         self.assertIn("roles.py backup", section)
         for decision in ("relaunch", "panel", "park", "not-usage-limit"):
             self.assertIn(f"`{decision}`", section)
@@ -155,7 +160,7 @@ class StalledChildDocTest(unittest.TestCase):
         self.assertLess(section.index("provider error"), section.index("roles.py backup"))
 
     def test_failure_handling_decides_completion_by_work_state(self):
-        section = runtime_section("### Failure handling", "\n### ")
+        section = failure_handling()
         self.assertNotIn("that child is still running nested work", section)
         for phrase in (
             "Decide completion by `workState` alone.",

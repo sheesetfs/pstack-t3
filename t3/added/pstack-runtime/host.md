@@ -1,6 +1,6 @@
 # Host notes
 
-Read this file when a thread settles or snoozes, or before you install or locate skills.
+Read this file when a thread settles or snoozes, before you install or locate skills, or when the T3 tools are absent.
 
 ## Host version
 
@@ -73,3 +73,18 @@ A child or launched thread can stall on a question for the user. Call `t3_pendin
 A question wakes this thread with a message that names the child's thread and the request ID. A question that blocks the child also ends a `mode: "wait"` call, with `hasPendingQuestion: true` and `waitTimedOut: false`. `task_status` shows `hasPendingQuestion: true` while a question blocks the child. A Codex child can ask without stopping, and its wake says it is still working. When the question no longer shows in `t3_pending_request` with `action: "list"`, someone answered or dismissed it, so send nothing. A task in `result_available` that completed or failed keeps its child's open questions. Do not answer one. Answering such a question sends a message to the child's thread and does not reopen the task. Give the answer to a fresh child per [Fresh children by default](SKILL.md#fresh-children-by-default).
 
 Approval (permission) requests are not listed and cannot be answered by these tools. A child stalled on one looks idle in `task_status`. Avoid the stall: children inherit this thread's runtime mode, so a child that must run commands or edit needs a parent in a mode that allows it. If a child stalls anyway, tell the user which thread is waiting for approval. Never raise a child's `runtimeMode` to get around it.
+
+## ACP fallback
+
+Some ACP agents accept the injected MCP server but do not expose its tools. When the T3 tools are absent and `T3_ACP_MCP_NODE` is set, call the same tools through the terminal:
+
+```bash
+ELECTRON_RUN_AS_NODE=1 "$T3_ACP_MCP_NODE" ${T3_ACP_MCP_ENTRYPOINT:+"$T3_ACP_MCP_ENTRYPOINT"} acp-mcp-call orchestrator_capabilities '{}'
+ELECTRON_RUN_AS_NODE=1 "$T3_ACP_MCP_NODE" ${T3_ACP_MCP_ENTRYPOINT:+"$T3_ACP_MCP_ENTRYPOINT"} acp-mcp-call delegate_task '{"task":"...","mode":"async","clientRequestId":"..."}'
+```
+
+This is the supported transport, not a shell substitute for delegation.
+
+## Outside T3
+
+If neither the tools nor the ACP bridge exist, you are not running in T3. Use the host's native subagents on inherited models, run panels sequentially if needed, and state that model diversity and scheduling were unavailable.

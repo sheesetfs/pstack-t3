@@ -110,7 +110,7 @@ class ModesTest(unittest.TestCase):
         self.assertIn("pass check <item> --sha <head> --json", self.gate)
 
     def test_deadlines_and_delegation_step_4_carry_the_mode_lines(self):
-        deadlines = self.runtime.split("## Deadlines", 1)[1].split("\n## ", 1)[0]
+        deadlines = (ROOT / "skills/pstack-runtime/modes.md").read_text().split("## Deadlines", 1)[1].split("\n## ", 1)[0]
         self.assertIn(
             "A step that the brief's `Waived by mode:` line names is not a skip, "
             "because the mode removed it before the attempt started.",
@@ -136,7 +136,7 @@ class ModesTest(unittest.TestCase):
         self.assertNotIn("Gate review contract.", self.gate)
 
     def test_seat_rule_is_literal(self):
-        self.assertEqual(seat_rule(self.runtime), SEAT_RULE)
+        self.assertEqual(seat_rule((ROOT / "skills/pstack-runtime/modes.md").read_text()), SEAT_RULE)
 
     def test_every_owner_row_carries_the_seat_rule(self):
         light = (ROOT / "skills/pstack-runtime/light.md").read_text()
@@ -168,10 +168,11 @@ class ModesTest(unittest.TestCase):
             paragraph,
         )
         resolve = self.runtime.split("### Resolve and carry the mode", 1)[1].split("\n### ", 1)[0]
-        self.assertIn("except the explicit reflect below", resolve)
+        self.assertIn("except a user's explicit reflect, which passes `--session-mode full` per [Explicit reflect](modes.md#explicit-reflect)", resolve)
+        reflect = (ROOT / "skills/pstack-runtime/modes.md").read_text().split("## Explicit reflect", 1)[1].split("\n## ", 1)[0]
         self.assertIn(
             "A user's explicit reflect passes `--session-mode full` on every `roles.py show` call",
-            resolve,
+            reflect,
         )
 
     def test_automate_me_brief_lists_every_assigned_thread(self):

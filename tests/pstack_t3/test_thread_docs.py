@@ -91,9 +91,9 @@ class ForkDocTest(unittest.TestCase):
         stub = runtime_section("## Top-level threads")
         self.assertIn("### Forks", stub)
         self.assertIn("Forks live in [threads.md](threads.md#forks).", stub)
+        self.assertLess(stub.index("[Top-level threads](threads.md#top-level-threads)"), stub.index("### Forks"))
         threads = runtime_doc_section("threads.md", "## Top-level threads")
         self.assertIn("`create_threads` makes up to 20 threads", threads)
-        self.assertLess(stub.index("`create_threads` makes up to 20 threads"), stub.index("### Forks"))
 
     def test_a_fork_never_replaces_a_child(self):
         for sentence in (

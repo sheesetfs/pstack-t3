@@ -1,6 +1,13 @@
 # Failures
 
-Read this file when a failed child's error names a usage limit, or after a T3 restart before you respawn any slice.
+Read this file when `delegate_task` rejects a target, when a child fails, stalls, or returns nothing usable, when a failed child's error names a usage limit, or after a T3 restart before you respawn any slice.
+
+## Failure handling
+
+- A target is rejected: call `orchestrator_capabilities`, then fall back per [Roles](SKILL.md#roles), and say which seat changed and why.
+- A child fails or returns nothing usable: proceed with N-1 and record the dropout. Respawn once with a fresh child for a required slice. Never resume a failed child to fix its own work. When the failure carries a provider error, follow the next bullet before that respawn. A failure that reads `Killed: out of memory.` is an out-of-memory kill that T3 reports. Lower the load before you respawn that child. Run fewer children at once, or run builds through the slot in [Local command capacity](SKILL.md#local-command-capacity). Report a second kill as a blocker.
+- Check a usage limit only for a failed child that did not return the brief's result. When a failed child's error names a usage limit, follow [failures.md](#usage-limit) before you respawn it.
+- A stalled child (see [Delegation](delegation.md#spawn-and-collect) step 5): first call `t3_pending_request` with `action: "list"` and the child's `childThreadId` as `threadId`. A child with a question that blocks it waits on an answer and is not stalled. Answer it per [Pending requests](SKILL.md#pending-requests), and count its 10 minutes again from the answer. Otherwise read its last items. When its last assistant message holds the result the brief asked for, use that message as the result and call `task_cancel` on the task. When its last item is an approval request that is still waiting, call `task_cancel` and respawn once with no `runtimeMode`. Otherwise call `task_cancel` and respawn once for a required slice.
 
 ## Usage limit
 
