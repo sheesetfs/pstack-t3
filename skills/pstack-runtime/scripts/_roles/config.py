@@ -326,6 +326,8 @@ def check_shape(config, origin):
                 canonical(item, "escalate pattern")  # traversal check only; the stored pattern stays raw
             except ModeSettingsError:
                 raise ModeSettingsError(f"{origin}: escalate pattern {item!r} leaves the repository") from None
+    if "sessionHook" in config and not isinstance(config["sessionHook"], bool):
+        raise RolesError(f"{origin}: sessionHook must be true or false")
     roles = config.get("roles", {})
     if not isinstance(roles, dict):
         raise RolesError(f"{origin}: roles must be an object")

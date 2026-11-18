@@ -27,6 +27,7 @@ Tool names may carry a harness prefix, such as `mcp__t3-code__delegate_task` or 
 | [modes.md](modes.md) | for the checks every mode keeps |
 | [isolation.md](isolation.md) | before isolating a writing child or running a heavy command |
 | [watching.md](watching.md) | before linking a PR or waiting on its checks |
+| [session-start-context.md](session-start-context.md) | never. The session-start hook prints it into a new chat |
 
 ## Vocabulary
 

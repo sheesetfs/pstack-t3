@@ -5,6 +5,7 @@ import shlex
 from dataclasses import dataclass
 from pathlib import Path
 
+from . import hooks
 from . import layout
 from . import moves
 from . import plans
@@ -92,6 +93,30 @@ AWAY = ('{file}: claims {n} links here for checkout {checkout}, and no directory
         'delete this file unless that checkout will be back at that path; deleting it removes that checkout\'s claims '
         'and removes no link they name and no row of {manifest}')
 
+HOOK_MISSING = ('hook {event} in {file}: no entry holds the command pstack-t3 records ({command}); '
+                'run "{install}" to add it again')
+
+HOOK_MISSING_MANY = ('hooks have no entry holding the command pstack-t3 records; '
+                     'run "{install}" to add them again:')
+
+HOOK_TWICE = ('hook {event} in {file}: {n} entries hold the command pstack-t3 records ({command}); '
+              'run "{uninstall}", then "{install}", to leave one')
+
+HOOK_TWICE_MANY = ('hooks have more than one entry holding the command pstack-t3 records; '
+                   'run "{uninstall}", then "{install}", to leave one:')
+
+HOOK_STALE = ('hook {event} in {file}: pstack-t3 records the command {recorded} and now installs {command}; '
+              'run "{uninstall}", then "{install}", to replace it')
+
+HOOK_STALE_MANY = ('hooks record a command pstack-t3 no longer installs; '
+                  'run "{uninstall}", then "{install}", to replace them:')
+
+HOOK_DRIFTED = ('hook {event} in {file}: the entry holding {command} sits under matcher {matcher}, and pstack-t3 '
+                'installs matcher {expected}; run "{install}" to repair it')
+
+HOOK_DRIFTED_MANY = ('hooks hold the command pstack-t3 records under another matcher; '
+                     'run "{install}" to repair them:')
+
 def command(args, *words):
     """One shell command for a person to copy and run from this checkout. Every argument is quoted for a POSIX shell as needed."""
     project = (f"--project={args.project}",) if args.project else ()
@@ -133,6 +158,61 @@ def row_finding(args, state, row, aside):
         return Finding(row.harnesses, UNREACHED_ROW.format(backup=row.backup, original=row.original, manifest=manifest))
     return Finding(row.harnesses, INERT_ROW.format(backup=row.backup, original=row.original, manifest=manifest),
                    INERT_ROW_MANY.format(manifest=manifest), f"{row.backup} (recorded as the backup of {row.original})")
+
+def hook_finding(args, root, raw, data):
+    """The Finding for one recorded hook its settings file does not match, or None when it matches. `data` is read from that file."""
+    hook = hooks.parse(raw)
+    if hook is None:
+        return None
+    install = command(args, "install", "--harness", hook.harness)
+    uninstall = command(args, "uninstall", "--harness", hook.harness)
+    expected = hooks.managed({hook.harness: os.path.dirname(hook.file)}, root)
+    if not expected or expected[0] != hook:
+        now = expected[0].command if expected else "no command"
+        return Finding((hook.harness,),
+                       HOOK_STALE.format(event=hook.event, file=hook.file, recorded=hook.command, command=now,
+                                         install=install, uninstall=uninstall),
+                       HOOK_STALE_MANY.format(install=install, uninstall=uninstall),
+                       f"{hook.event} in {hook.file}: records {hook.command}, installs {now}")
+    found = hooks.matching(data, hook)
+    if not found:
+        return Finding((hook.harness,),
+                       HOOK_MISSING.format(event=hook.event, file=hook.file, command=hook.command, install=install),
+                       HOOK_MISSING_MANY.format(install=install), f"{hook.event} in {hook.file}: nothing runs {hook.command}")
+    if len(found) > 1:
+        return Finding((hook.harness,),
+                       HOOK_TWICE.format(event=hook.event, file=hook.file, n=len(found), command=hook.command,
+                                         install=install, uninstall=uninstall),
+                       HOOK_TWICE_MANY.format(install=install, uninstall=uninstall),
+                       f"{hook.event} in {hook.file}: {len(found)} entries run {hook.command}")
+    # A group under another matcher never hands the command the event it waits for, so the note would never print.
+    wrong = [matcher for matcher in hooks.matchers(data, hook) if matcher != hook.matcher]
+    if wrong:
+        held = ", ".join(matcher or "no matcher" for matcher in wrong)
+        return Finding((hook.harness,),
+                       HOOK_DRIFTED.format(event=hook.event, file=hook.file, command=hook.command, matcher=held,
+                                           expected=hook.matcher, install=install),
+                       HOOK_DRIFTED_MANY.format(install=install),
+                       f"{hook.event} in {hook.file}: matcher {held} on {hook.command}")
+    return None
+
+
+def hook_findings(args, root, view):
+    """The Findings for each recorded hook this checkout owns and its settings file does not match, and an Unread for a file doctor could not read."""
+    findings, unread = [], []
+    for raw in view.hooks:
+        hook = hooks.parse(raw)
+        if hook is None or hooks.owner(raw) != root:
+            continue
+        try:
+            found = hook_finding(args, root, raw, hooks.settings(hook.file))
+        except records.Unreadable as error:
+            unread.append(Unread(f"{error} (doctor checked no {hook.event} hook in it)", False))
+            continue
+        if found is not None:
+            findings.append(found)
+    return findings, unread
+
 
 def grouped(findings):
     """The lines doctor prints for `findings`.
@@ -217,7 +297,8 @@ def audit(args, scope, user, names):
         if not os.path.lexists(row.backup):
             aside = held_for.get(row.backup) or (None if os.path.isabs(row.backup) else strays.held_beside(row.backup))
             stale.append(row_finding(args, state, row, aside))
-    return Audit(tuple(stale + away), tuple(unread))
+    found, blind = hook_findings(args, root, view)
+    return Audit(tuple(stale + found + away), tuple(unread + blind))
 
 def link_health(harness, directory, names, scope, user):
     """Print the pstack-t3 link state of `directory` for `harness`.

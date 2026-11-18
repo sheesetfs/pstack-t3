@@ -29,6 +29,7 @@ class View:
     claims: dict
     links: tuple
     backups: tuple
+    hooks: tuple = ()
 
 @dataclass(frozen=True)
 class Mine:
@@ -88,32 +89,33 @@ def read_object(path):
     return data
 
 def legacy_lists(path):
-    """Return the manifest's object and its links and backups lists, or None when `read_object` finds no file."""
+    """Return the manifest's object and its links, backups, and hooks lists, or None when `read_object` finds no file."""
     data = read_object(path)
     if data is None:
         return None
     found = []
-    for key in ("links", "backups"):
+    for key in ("links", "backups", "hooks"):
         value = data.get(key, [])
         if not isinstance(value, list):
             raise Unreadable(f"{path} has a {key} entry that is not a list; fix or move it and rerun")
         found.append(value)
-    return data, found[0], found[1]
+    return data, found[0], found[1], found[2]
 
 def read_legacy(state, scope, user):
     file = Path(state) / layout.LEGACY_NAME
     found = legacy_lists(file)
     if found is None:
-        return (), ()
-    _data, raw_links, raw_backups = found
+        return (), (), ()
+    _data, raw_links, raw_backups, raw_hooks = found
     links = tuple(item for item in (parse_link(entry, scope, user, file) for entry in raw_links) if item)
     backups = tuple(item for item in (parse_backup(entry, scope, user, file) for entry in raw_backups) if item)
-    return links, backups
+    hooks = tuple(entry for entry in raw_hooks if isinstance(entry, dict))
+    return links, backups, hooks
 
 def load(state, scope, user):
     root = str(layout.ROOT)
-    links, backups = read_legacy(state, scope, user)
-    return View(current_claims(state, root), links, backups)
+    links, backups, hooks = read_legacy(state, scope, user)
+    return View(current_claims(state, root), links, backups, hooks)
 
 def records(view, root):
     parts = {}
@@ -222,20 +224,20 @@ def claims_in(data):
             claims[key] = layout.ordered(harnesses)
     return claims
 
-def patch_legacy(state, add_links, add_backups, remove_links, remove_backups, adding):
-    """Return the link rows and backup paths this call appended."""
-    if not add_links and not add_backups and not remove_links and not remove_backups:
-        return (), ()
+def patch_legacy(state, add_links, add_backups, remove_links, remove_backups, adding, add_hooks=(), remove_hooks=()):
+    """Return the link rows, backup paths, and hook rows this call appended."""
+    if not add_links and not add_backups and not remove_links and not remove_backups and not add_hooks and not remove_hooks:
+        return (), (), ()
     path = Path(state) / layout.LEGACY_NAME
     found = legacy_lists(path)
     # Older installers still read this file, so a cleanup leaves empty lists in place.
     if found is not None:
-        data, links, backups = found
+        data, links, backups, hooks = found
     elif adding:
-        data, links, backups = {}, [], []
+        data, links, backups, hooks = {}, [], [], []
     else:
-        return (), ()
-    added_links, added_backups = [], []
+        return (), (), ()
+    added_links, added_backups, added_hooks = [], [], []
     changed = False
     if adding:
         for row in add_links:
@@ -251,6 +253,12 @@ def patch_legacy(state, add_links, add_backups, remove_links, remove_backups, ad
             backups.append(row)
             added_backups.append(row["backup"])
             changed = True
+        for raw in add_hooks:
+            if raw in hooks:
+                continue
+            hooks.append(raw)
+            added_hooks.append(raw)
+            changed = True
     else:
         for raw in remove_links:
             for index in range(len(links) - 1, -1, -1):
@@ -265,11 +273,21 @@ def patch_legacy(state, add_links, add_backups, remove_links, remove_backups, ad
                     del backups[index]
                     changed = True
                     break
+        for raw in remove_hooks:
+            for index in range(len(hooks) - 1, -1, -1):
+                if hooks[index] == raw:
+                    del hooks[index]
+                    changed = True
+                    break
     if changed:
         data["links"] = links
         data["backups"] = backups
+        if hooks:
+            data["hooks"] = hooks
+        else:
+            data.pop("hooks", None)
         atomic_write(Path(state), layout.LEGACY_NAME, json.dumps(data, indent=2) + "\n")
-    return tuple(added_links), tuple(added_backups)
+    return tuple(added_links), tuple(added_backups), tuple(added_hooks)
 
 def add_records(step, state, root):
     """Save a step's adds before its act. Return a function that takes back exactly the records that were new."""
@@ -280,10 +298,10 @@ def add_records(step, state, root):
             previous[path] = claims.get(path)
             claims[path] = layout.ordered(harnesses)
         write_claims(state, root, claims)
-    links, backups = patch_legacy(state, step.add_links, step.add_backups, (), (), True)
+    links, backups, hooks = patch_legacy(state, step.add_links, step.add_backups, (), (), True, add_hooks=step.add_hooks)
 
     def undo():
-        patch_legacy(state, (), (), links, backups, False)
+        patch_legacy(state, (), (), links, backups, False, remove_hooks=hooks)
         if previous:
             claims = current_claims(state, root)
             for path, harnesses in previous.items():
@@ -297,7 +315,7 @@ def add_records(step, state, root):
 
 def remove_records(step, state, root):
     # Owner file first on add and last on remove, so a crash keeps an extra claim.
-    patch_legacy(state, (), (), step.remove_links, step.remove_backups, False)
+    patch_legacy(state, (), (), step.remove_links, step.remove_backups, False, remove_hooks=step.remove_hooks)
     if step.remove_claims:
         claims = current_claims(state, root)
         for path in step.remove_claims:
@@ -309,7 +327,7 @@ def buried(state, root, path):
     found = legacy_lists(Path(state) / layout.LEGACY_NAME)
     if found is None:
         return False
-    _data, _links, backups = found
+    _data, _links, backups, _hooks = found
     return any(
         isinstance(row, dict) and isinstance(row.get("original"), str) and isinstance(row.get("backup"), str)
         and layout.slot_of(row["original"]) == layout.slot_of(path) and layout.proves(root, row["backup"], row["original"])

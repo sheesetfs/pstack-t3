@@ -9,6 +9,7 @@ from contextlib import ExitStack, contextmanager
 from dataclasses import replace
 from pathlib import Path
 
+from . import hooks
 from . import layout
 from . import moves
 from . import plans
@@ -41,9 +42,14 @@ def act(step, root):
     elif step.kind == "restore":
         os.makedirs(os.path.dirname(step.path), exist_ok=True)
         return restore.restore_backup(step.backup, step.path, step.held)
+    elif step.kind == "hook":
+        hooks.install(step.hook)
+    elif step.kind == "unhook":
+        hooks.uninstall(step.hook)
 
 def execute(plan, state, root):
-    counts = {"linked": 0, "removed": 0, "restored": 0, "withdrawn": 0, "kept_extra": 0, "skipped": 0}
+    counts = {"linked": 0, "removed": 0, "restored": 0, "withdrawn": 0, "kept_extra": 0, "skipped": 0,
+              "hooked": 0, "unhooked": 0}
     failed = set()
     stamp = None
     made = []
@@ -102,6 +108,10 @@ def execute(plan, state, root):
                 counts["withdrawn"] += 1
             elif step.kind == "restore":
                 counts["restored"] += 1
+            elif step.kind == "hook":
+                counts["hooked"] += 1
+            elif step.kind == "unhook":
+                counts["unhooked"] += 1
     finally:
         if stamp is not None:
             name = os.path.basename(stamp)
@@ -132,6 +142,8 @@ def needs_lock(plan, strays, state):
 def report_install(plan, state, root, executed, dry_run):
     for line in plan.refusals:
         print(line)
+    planned_hooks = [step for step in plan.steps if step.kind == "hook"]
+    hooked = 0 if executed is None else executed["hooked"]
     if dry_run:
         moved = {step.path for step in plan.steps if step.kind == "move"}
         for step in plan.steps:
@@ -139,28 +151,38 @@ def report_install(plan, state, root, executed, dry_run):
                 continue
             suffix = f" (replacing {layout.describe(step.path)})" if step.path in moved else ""
             print(f"would link {step.path} -> {layout.link_target(root, step.path)}{suffix}")
+        for step in planned_hooks:
+            print(f"would add the {hooks.describe(step.hook)}")
         _tally_lines(plan)
         print(f"{plans.count_steps(plan, 'create')} links planned")
         return
     linked = 0 if executed is None else executed["linked"]
     joined = ", ".join(sorted({harness for step in plan.steps if step.kind == "create" for harness in step.harnesses}))
     print(f"linked {linked} skills into {joined or 'nothing (already installed)'}")
+    for step in planned_hooks[:hooked]:
+        print(f"added the {hooks.describe(step.hook)}")
     _tally_lines(plan)
     print(f"manifest: {Path(state) / layout.LEGACY_NAME}")
 
 def report_uninstall(plan, executed, dry_run):
     for line in plan.occupied:
         print(line)
+    planned_hooks = [step for step in plan.steps if step.kind == "unhook"]
+    unhooked = 0 if executed is None else executed["unhooked"]
     if dry_run:
         removed = plans.count_steps(plan, ("unlink", "withdraw"))
         restored = plans.count_steps(plan, "restore")
         withdrawn = plans.count_steps(plan, "withdraw")
         print(f"would remove {removed} links, would restore {restored} entries")
+        for step in planned_hooks:
+            print(f"would remove the {hooks.describe(step.hook)}")
     else:
         removed = 0 if executed is None else executed["removed"]
         restored = 0 if executed is None else executed["restored"]
         withdrawn = 0 if executed is None else executed["withdrawn"]
         print(f"removed {removed} links, restored {restored} entries")
+    for step in planned_hooks[:unhooked]:
+        print(f"removed the {hooks.describe(step.hook)}")
     if withdrawn:
         print(f"{withdrawn} of them had been moved aside by another checkout's --replace")
     for others in plan.shared:

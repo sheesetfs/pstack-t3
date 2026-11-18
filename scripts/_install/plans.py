@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
+from . import hooks
 from . import layout
 from . import records
 from . import strays
@@ -33,12 +34,15 @@ class Step:
     backup: str | None = None
     place: str = ""
     harnesses: tuple = ()
+    hook: hooks.Hook | None = None
     add_claims: tuple = ()
     add_links: tuple = ()
     add_backups: tuple = ()
+    add_hooks: tuple = ()
     remove_claims: tuple = ()
     remove_links: tuple = ()
     remove_backups: tuple = ()
+    remove_hooks: tuple = ()
     adopted: bool = False
     held: Held | None = None
 
@@ -55,6 +59,48 @@ class Plan:
 
 def tagged_exists(view, path, root):
     return any(link.checkout == root and link.path == path for link in view.links)
+
+def install_hook_steps(view, scope, user, selected, root):
+    """The hook steps this run plans: user scope only, one per managed harness hook.
+
+    A hook step is planned when the manifest has no row from this checkout for the hook, or the settings file holds no
+    entry for its command under the registry's matcher. The settings file is read and its shape checked here, so a file
+    that will not parse or holds another shape refuses the run before any write.
+    """
+    if not user or not hooks.built(root):
+        return ()
+    dirs = {
+        harness: os.path.dirname(str(directory))
+        for harness, directory in layout.skill_dirs(scope, user).items()
+        if harness in selected
+    }
+    steps = []
+    for hook in hooks.managed(dirs, root):
+        data = hooks.settings(hook.file)
+        record = hooks.row(hook, root)
+        recorded = record in view.hooks
+        if recorded and hook.matcher in hooks.matchers(data, hook):
+            continue
+        steps.append(Step("hook", hook.file, hook=hook, add_hooks=() if recorded else (record,)))
+    return tuple(steps)
+
+
+def uninstall_hook_steps(view, selected, root):
+    """The hook steps an uninstall plans: one per recorded hook of a selected harness this checkout owns.
+
+    A row another checkout recorded names its own command and its own copy of the script, so this run leaves it alone.
+    The settings file is read and its shape checked here, so a file that will not parse or holds another shape under
+    `hooks` refuses the run before any write.
+    """
+    steps = []
+    for raw in view.hooks:
+        hook = hooks.parse(raw)
+        if hook is None or hook.harness not in set(selected) or hooks.owner(raw) != root:
+            continue
+        hooks.groups(hooks.settings(hook.file), hook)
+        steps.append(Step("unhook", hook.file, hook=hook, remove_hooks=(raw,)))
+    return tuple(steps)
+
 
 def plan_install(view, scope, user, selected, names, root, replace):
     groups, refusals = layout.layout(scope, user, selected)
@@ -86,6 +132,7 @@ def plan_install(view, scope, user, selected, names, root, replace):
                 row = {"harnesses": list(harnesses), "path": path, "checkout": root}
                 add_links = () if tagged_exists(view, path, root) else (row,)
                 steps.append(Step("create", path, harnesses=harnesses, add_claims=((path, harnesses),), add_links=add_links))
+    steps.extend(install_hook_steps(view, scope, user, selected, root))
     return Plan(tuple(steps), tuple(conflicts), tuple(refusals), untracked, adopted)
 
 def occupied_note(row):
@@ -172,6 +219,7 @@ def plan_uninstall(view, root, selected, holds):
     for row in view.backups:
         if unreached(row) and covered(row.harnesses) and strays.held_beside(row.backup) is None:
             occupied.append(KEPT_UNREACHED.format(backup=row.backup, original=row.original))
+    steps.extend(uninstall_hook_steps(view, selected, root))
     return Plan(tuple(steps), occupied=tuple(occupied), shared=tuple(sorted(shared)), kept=kept)
 
 def ready(step, root):
@@ -179,7 +227,7 @@ def ready(step, root):
         return not os.path.lexists(step.path)
     if step.kind == "move":
         return bool(step.backup) and os.path.lexists(step.path) and not os.path.lexists(step.backup)
-    if step.kind in ("record", "forget"):
+    if step.kind in ("record", "forget", "hook", "unhook"):
         return True
     if step.kind == "unlink":
         return layout.proves(root, step.path, step.path)
@@ -190,6 +238,10 @@ def ready(step, root):
     return False
 
 def subject(step):
+    if step.kind == "hook":
+        return f"add the {hooks.describe(step.hook)}"
+    if step.kind == "unhook":
+        return f"remove the {hooks.describe(step.hook)}"
     return {
         "unlink": f"unlink {step.path}",
         "withdraw": f"withdraw {step.backup}",
